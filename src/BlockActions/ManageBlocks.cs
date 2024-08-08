@@ -29,7 +29,7 @@ public partial class Plugin
         else PrintToChat(player, "Could not find block to delete");
     }
 
-    public void Command_RotateBlock(CCSPlayerController player, bool vertical)
+    public void Command_RotateBlock(CCSPlayerController player, string rotation)
     {
         if (player == null || player.NotValid())
             return;
@@ -38,25 +38,32 @@ public partial class Plugin
             return;
 
         var block = player.GetBlockAimTarget();
-        string axisType;
+
+        float selectedRotation = playerData[player].selectedRotation;
 
         if (block != null)
         {
             if (UsedBlocks.ContainsKey(block))
             {
-                if (vertical)
-                {
-                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X + 30, block.AbsRotation.Y, block.AbsRotation.Z));
-                    axisType = "Vertical";
-                }
+                if (rotation == "reset")
+                    block.Teleport(block.AbsOrigin, new QAngle(0, 0, 0));
 
-                else
-                {
-                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y + 30, block.AbsRotation.Z));
-                    axisType = "Horizontal";
-                }
+                if (rotation == "X+")
+                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X + selectedRotation, block.AbsRotation.Y, block.AbsRotation.Z));
+                if (rotation == "X-")
+                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X - selectedRotation, block.AbsRotation.Y, block.AbsRotation.Z));
 
-                PrintToChat(player, $"Rotated Block: {ChatColors.White}{axisType} Axis");
+                if (rotation == "Y+")
+                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y + selectedRotation, block.AbsRotation.Z));
+                if (rotation == "Y-")
+                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y - selectedRotation, block.AbsRotation.Z));
+
+                if (rotation == "Z+")
+                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y, block.AbsRotation.Z + selectedRotation));
+                if (rotation == "Z-")
+                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y, block.AbsRotation.Z - selectedRotation));
+
+                PrintToChat(player, $"Rotated Block: {ChatColors.White}{rotation} {(rotation == "reset" ? "" : $"by {selectedRotation} units")}");
                 PlaySound(player, Config.Sounds.Rotate);
             }
         }

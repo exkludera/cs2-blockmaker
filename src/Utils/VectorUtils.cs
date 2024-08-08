@@ -87,7 +87,7 @@ public static class VectorUtils
         return (float)Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2) + Math.Pow(a.Z - b.Z, 2));
     }
 
-    public static Vector GetEndXYZ(CCSPlayerController player, double distance = 250)
+    public static Vector GetEndXYZ(CCSPlayerController player, double distance = 250, float grid = 0f)
     {
         double karakterX = (float)player.PlayerPawn.Value!.AbsOrigin!.X;
         double karakterY = (float)player.PlayerPawn.Value.AbsOrigin.Y;
@@ -105,6 +105,14 @@ public static class VectorUtils
         double x = karakterX + distance * Math.Cos(radianA) * Math.Cos(radianB);
         double y = karakterY + distance * Math.Cos(radianA) * Math.Sin(radianB);
         double z = karakterZ + distance * Math.Sin(radianA);
+
+        //snapping grid
+        if (grid != 0f)
+        {
+            x = (float)Math.Round(x / grid) * grid;
+            y = (float)Math.Round(y / grid) * grid;
+            z = (float)Math.Round(z / grid) * grid;
+        }
 
         return new Vector((float)x, (float)y, (float)z);
     }

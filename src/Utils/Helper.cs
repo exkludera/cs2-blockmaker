@@ -12,7 +12,9 @@ public class PlayerData
     public int currentTeam;
     public bool allowedBuilder;
     public string selectedBlock = "PLATFORM";
-    public string selectedSize = "";
+    public string selectedSize = "medium";
+    public float selectedGrid = 0f;
+    public float selectedRotation = 30f;
 }
 
 public partial class Plugin
@@ -109,12 +111,14 @@ public partial class Plugin
                 {
                     case "small":
                         return blockInfo.Small;
+                    case "medium":
+                        return blockInfo.Medium;
                     case "large":
                         return blockInfo.Large;
                     case "pole":
                         return blockInfo.Pole;
                     default:
-                        return blockInfo.Default;
+                        return blockInfo.Medium;
                 }
             }
         }

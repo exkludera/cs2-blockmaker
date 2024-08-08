@@ -10,7 +10,7 @@ namespace BlockBuilder;
 public partial class Plugin : BasePlugin, IPluginConfig<Config>
 {
     public override string ModuleName => "Block Builder";
-    public override string ModuleVersion => "0.0.1";
+    public override string ModuleVersion => "0.0.2";
     public override string ModuleAuthor => "exkludera";
 
     public static Plugin _ { get; set; } = new();
@@ -47,6 +47,11 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         {
             foreach (var player in Utilities.GetPlayers().Where(p => !p.IsBot && !playerData.ContainsKey(p)))
                 playerData[player] = new();
+
+            foreach (var block in Utilities.GetAllEntities().Where(b => b.DesignerName == "prop_physics_override"))
+                block.Remove();
+
+            SpawnBlocks();
         }
     }
 
@@ -88,8 +93,8 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
     {
         foreach (var block in Config.Blocks.Values)
         {
-            PrecacheResource(manifest, block.Default);
             PrecacheResource(manifest, block.Small);
+            PrecacheResource(manifest, block.Medium);
             PrecacheResource(manifest, block.Large);
             PrecacheResource(manifest, block.Pole);
         }

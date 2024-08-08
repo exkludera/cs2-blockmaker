@@ -111,7 +111,7 @@ public partial class Plugin
 
     public void PressRepeat(CCSPlayerController player, CBaseProp block)
     {
-        block.Teleport(GetEndXYZ(player, PlayerHolds[player].distance), null, player.PlayerPawn.Value!.AbsVelocity!);
+        block.Teleport(GetEndXYZ(player, PlayerHolds[player].distance, playerData[player].selectedGrid), null, player.PlayerPawn.Value!.AbsVelocity!);
 
         if (player.Buttons.HasFlag(PlayerButtons.Attack))
         {
@@ -127,7 +127,7 @@ public partial class Plugin
 
     public void RotateRepeat(CCSPlayerController player, CBaseProp block)
     {
-        block.Teleport(GetEndXYZ(player, PlayerHolds[player].distance), null, player.PlayerPawn.Value!.AbsVelocity!);
+        block.Teleport(GetEndXYZ(player, PlayerHolds[player].distance, playerData[player].selectedGrid), null, player.PlayerPawn.Value!.AbsVelocity!);
 
         if (player.Buttons.HasFlag(PlayerButtons.Attack))
         {
