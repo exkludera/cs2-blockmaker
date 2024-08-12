@@ -4,7 +4,7 @@ using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
-namespace BlockBuilder;
+namespace BlockMaker;
 
 public partial class Plugin
 {
@@ -16,62 +16,54 @@ public partial class Plugin
         if (!BuildMode(player))
             return;
 
-        var hitPoint = TraceShape(new Vector(player.PlayerPawn.Value!.AbsOrigin!.X, player.PlayerPawn.Value!.AbsOrigin!.Y, player.PlayerPawn.Value!.AbsOrigin!.Z + player.PlayerPawn.Value.CameraServices!.OldPlayerViewOffsetZ), player.PlayerPawn.Value!.EyeAngles!, false, true);
+        var hitPoint = RayTrace.TraceShape(new Vector(player.PlayerPawn.Value!.AbsOrigin!.X, player.PlayerPawn.Value!.AbsOrigin!.Y, player.PlayerPawn.Value!.AbsOrigin!.Z + player.PlayerPawn.Value.CameraServices!.OldPlayerViewOffsetZ), player.PlayerPawn.Value!.EyeAngles!, false, true);
 
         if (hitPoint == null && !hitPoint.HasValue)
         {
-            PrintToChat(player, $"{ChatColors.Red}HitPoint Distance too large");
+            PrintToChat(player, $"Create Block: {ChatColors.Red}Distance too large between block and aim location");
             return;
         }
 
-        if (_.playerData.TryGetValue(player, out PlayerData playerData))
+        string selectedBlock = playerData[player].Block;
+
+        if (string.IsNullOrEmpty(selectedBlock))
         {
-            string selectedBlock = playerData.selectedBlock;
-
-            if (string.IsNullOrEmpty(selectedBlock))
-            {
-                PrintToChat(player, $"{ChatColors.Red}select a block first");
-                return;
-            }
-
-            string blockmodel = GetModelFromSelectedBlock(player, playerData.selectedSize);
-
-            try
-            {
-                CreateBlock(selectedBlock, blockmodel, Vector3toVector(hitPoint.Value), new QAngle());
-            }
-            catch
-            {
-                PrintToChat(player, $"{ChatColors.Red}Failed to create block");
-            }
-            finally
-            {
-                PlaySound(player, Config.Sounds.Create);
-                PrintToChat(player, "Created block");
-            }
+            PrintToChat(player, $"Create Block: Select a Block first");
+            return;
         }
-        else PrintToChat(player, $"{ChatColors.Red}you're not found in player data :(");
+
+        string blockmodel = GetModelFromSelectedBlock(player, playerData[player].Size);
+
+        try
+        {
+            CreateBlock(selectedBlock, blockmodel, playerData[player].Size, RayTrace.Vector3toVector(hitPoint.Value), new QAngle());
+
+            PrintToChat(player, $"Create Block: Created type: {ChatColors.White}{playerData[player].Block}{ChatColors.Grey}, size: {ChatColors.White}{playerData[player].Size}");
+            PlaySound(player, Config.Sounds.Create);
+        }
+        catch
+        {
+            PrintToChat(player, $"Create Block: Failed to create block");
+            return;
+        }
     }
 
-    public void CreateBlock(string blockType, string blockModel, Vector blockPosition, QAngle blockRotation)
+    public void CreateBlock(string blockType, string blockModel, string blockSize, Vector blockPosition, QAngle blockRotation)
     {
         var block = Utilities.CreateEntityByName<CPhysicsPropOverride>("prop_physics_override");
-
         if (block != null && block.IsValid)
         {
+            block.DispatchSpawn();
             block.SetModel(blockModel);
 
-            block.DispatchSpawn();
-
-            block.EnableUseOutput = true;
             block.Globalname = blockType;
+            block.EnableUseOutput = true;
+            block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags = (uint)(block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags & ~(1 << 2));
 
-            block.MoveType = MoveType_t.MOVETYPE_NONE;
             block.AcceptInput("DisableMotion", block, block);
-
             block.Teleport(new Vector(blockPosition.X, blockPosition.Y, blockPosition.Z), new QAngle(blockRotation.X, blockRotation.Y, blockRotation.Z));
 
-            UsedBlocks[block] = new PropData(block, blockType, blockModel);
+            UsedBlocks[block] = new BlockData(block, blockType, blockModel, blockSize);
         }
         else Logger.LogError("(CreateBlock) failed to create block");
     }
@@ -84,17 +76,21 @@ public partial class Plugin
         {
             var jsonString = File.ReadAllText(savedBlocksPath);
 
-            var propDataList = JsonSerializer.Deserialize<List<SavePropData>>(jsonString);
+            var blockDataList = JsonSerializer.Deserialize<List<SaveBlockData>>(jsonString);
 
-            if (jsonString == null || propDataList == null)
+            if (jsonString == null || blockDataList == null || jsonString.ToString() == "[]")
             {
-                PrintToChatAll($"{ChatColors.Red}No blocks found in the saved file");
+                PrintToChatAll($"{ChatColors.Red}{noSpawnBlocksMessage()}");
                 return;
             }
 
-            foreach (var propData in propDataList)
-                CreateBlock(propData.Name, propData.Model, new Vector(propData.Position.X, propData.Position.Y, propData.Position.Z), new QAngle(propData.Rotation.Pitch, propData.Rotation.Yaw, propData.Rotation.Roll));
+            foreach (var blockData in blockDataList)
+                CreateBlock(blockData.Name, blockData.Model, blockData.Size, new Vector(blockData.Position.X, blockData.Position.Y, blockData.Position.Z), new QAngle(blockData.Rotation.Pitch, blockData.Rotation.Yaw, blockData.Rotation.Roll));
         }
-        else Logger.LogError("The file does not contain valid JSON data");
+        else
+        {
+            PrintToChatAll($"{ChatColors.Red}{noSpawnBlocksMessage()}");
+            Logger.LogError(noSpawnBlocksMessage());
+        }
     }
 }

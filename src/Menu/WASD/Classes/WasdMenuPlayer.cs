@@ -1,9 +1,9 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using System.Text;
-using static BlockBuilder.Plugin;
+using static BlockMaker.Plugin;
 
-namespace BlockBuilder;
+namespace BlockMaker;
 
 public class WasdMenuPlayer
 {

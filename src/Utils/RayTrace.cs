@@ -5,11 +5,11 @@ using System.Drawing;
 using System.Numerics;
 using System.Runtime.InteropServices;
 
-namespace BlockBuilder
+namespace BlockMaker
 {
-    public partial class Plugin
+    public static class RayTrace
     {
-        public CounterStrikeSharp.API.Modules.Utils.Vector Vector3toVector(Vector3 vec)
+        public static CounterStrikeSharp.API.Modules.Utils.Vector Vector3toVector(Vector3 vec)
         {
             return new CounterStrikeSharp.API.Modules.Utils.Vector(vec.X, vec.Y, vec.Z);
         }

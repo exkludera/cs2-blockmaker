@@ -3,7 +3,7 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 
-namespace BlockBuilder;
+namespace BlockMaker;
 
 public static class EntityExtends
 {

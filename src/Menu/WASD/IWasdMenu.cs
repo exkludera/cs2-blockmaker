@@ -1,6 +1,6 @@
 ﻿using CounterStrikeSharp.API.Core;
 
-namespace BlockBuilder;
+namespace BlockMaker;
 
 public interface IWasdMenu
 {

@@ -3,19 +3,10 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
+using System.Drawing;
 using System.Text.Json;
 
-namespace BlockBuilder;
-
-public class PlayerData
-{
-    public int currentTeam;
-    public bool allowedBuilder;
-    public string selectedBlock = "PLATFORM";
-    public string selectedSize = "medium";
-    public float selectedGrid = 0f;
-    public float selectedRotation = 30f;
-}
+namespace BlockMaker;
 
 public partial class Plugin
 {
@@ -25,15 +16,9 @@ public partial class Plugin
         PlayerHolds.Clear();
     }
 
-    private void PrecacheResource(ResourceManifest manifest, string file)
-    {
-        if (!string.IsNullOrEmpty(file))
-            manifest.AddResource(file);
-    }
-
     public bool BuildMode(CCSPlayerController player)
     {
-        if (buildMode && HasPermission(player))
+        if (buildMode && playerData[player].Builder)
             return true;
         else
         {
@@ -44,17 +29,17 @@ public partial class Plugin
 
     public bool HasPermission(CCSPlayerController player)
     {
-        return string.IsNullOrEmpty(Config.BuildMode.Permission) || AdminManager.PlayerHasPermissions(player, Config.BuildMode.Permission);
+        return string.IsNullOrEmpty(Config.Commands.Permission) || AdminManager.PlayerHasPermissions(player, Config.Commands.Permission);
     }
 
     public void PrintToChat(CCSPlayerController player, string message)
     {
-        player.PrintToChat($"{Config.Prefix} {ChatColors.Grey}{message}");
+        player.PrintToChat($"{Config.Settings.Prefix} {ChatColors.Grey}{message}");
     }
 
     public void PrintToChatAll(string message)
     {
-        Server.PrintToChatAll($"{Config.Prefix} {ChatColors.Grey}{message}");
+        Server.PrintToChatAll($"{Config.Settings.Prefix} {ChatColors.Grey}{message}");
     }
 
     public void PlaySound(CCSPlayerController player, string sound)
@@ -77,8 +62,8 @@ public partial class Plugin
     {
         if (!File.Exists(filePath))
         {
-            File.Create(savedBlocksPath);
-            Logger.LogInformation($"JSON Check: file does not exist, creating one ({filePath})");
+            Logger.LogInformation($"JSON Check: file does not exist ({filePath})");
+            return false;
         }
 
         string fileContent = File.ReadAllText(filePath);
@@ -103,25 +88,51 @@ public partial class Plugin
 
     public string GetModelFromSelectedBlock(CCSPlayerController player, string size)
     {
-        if (playerData.TryGetValue(player, out PlayerData data) && !string.IsNullOrEmpty(data.selectedBlock))
+        if (BlockModels.TryGetValue(playerData[player].Block, out var block))
         {
-            if (Config.Blocks.TryGetValue(data.selectedBlock, out BlockInfo blockInfo))
+            switch (size.ToLower())
             {
-                switch (size.ToLower())
-                {
-                    case "small":
-                        return blockInfo.Small;
-                    case "medium":
-                        return blockInfo.Medium;
-                    case "large":
-                        return blockInfo.Large;
-                    case "pole":
-                        return blockInfo.Pole;
-                    default:
-                        return blockInfo.Medium;
-                }
+                case "small":
+                    return block.Small;
+                case "medium":
+                    return block.Medium;
+                case "large":
+                    return block.Large;
+                case "pole":
+                    return block.Pole;
+                default:
+                    return block.Medium;
             }
         }
         return string.Empty;
+    }
+
+    public int GetPlacedBlocksCount()
+    {
+        return Utilities.GetAllEntities().Where(e => e.DesignerName.Contains("prop_physics_override")).Count();
+    }
+
+    public string GetMapName()
+    {
+        return Server.MapName.ToString();
+    }
+
+    private string noSpawnBlocksMessage()
+    {
+        return $"Failed to spawn Blocks. File for {GetMapName()} is empty or invalid";
+    }
+
+    private Color ParseColor(string colorValue)
+    {
+        var colorParts = colorValue.Split(',');
+        if (colorParts.Length == 4 &&
+            int.TryParse(colorParts[0], out var r) &&
+            int.TryParse(colorParts[1], out var g) &&
+            int.TryParse(colorParts[2], out var b) &&
+            int.TryParse(colorParts[3], out var a))
+        {
+            return Color.FromArgb(a, r, g, b);
+        }
+        return Color.FromArgb(255, 255, 255, 255);
     }
 }

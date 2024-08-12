@@ -1,7 +1,7 @@
 ﻿using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
 
-namespace BlockBuilder;
+namespace BlockMaker;
 
 public partial class Plugin
 {
@@ -13,20 +13,20 @@ public partial class Plugin
         if (!BuildMode(player))
             return;
 
-        var block = player.GetBlockAimTarget();
+        var entity = player.GetBlockAimTarget();
 
-        if (block != null)
+        if (entity != null)
         {
-            if (UsedBlocks.ContainsKey(block))
+            if (UsedBlocks.TryGetValue(entity, out var block))
             {
-                block.Remove();
-                UsedBlocks.Remove(block);
+                block.Entity.Remove();
+                UsedBlocks.Remove(block.Entity);
 
-                PrintToChat(player, "Block deleted");
-                PlaySound(player, Config.Sounds.Remove);
+                PlaySound(player, Config.Sounds.Delete);
+                PrintToChat(player, $"Delete Block: Deleted type: {ChatColors.White}{block.Name}{ChatColors.Grey}, size: {ChatColors.White}{block.Size}");
             }
         }
-        else PrintToChat(player, "Could not find block to delete");
+        else PrintToChat(player, "Delete Block: Could not find a block");
     }
 
     public void Command_RotateBlock(CCSPlayerController player, string rotation)
@@ -39,34 +39,46 @@ public partial class Plugin
 
         var block = player.GetBlockAimTarget();
 
-        float selectedRotation = playerData[player].selectedRotation;
+        float selectedRotation = playerData[player].Rotation;
 
         if (block != null)
         {
             if (UsedBlocks.ContainsKey(block))
             {
-                if (rotation == "reset")
+                if (string.IsNullOrEmpty(rotation))
+                {
+                    PrintToChat(player, $"Rotate Block: Option cannot be empty");
+                    return;
+                }
+
+                if (string.Equals(rotation, "reset", StringComparison.OrdinalIgnoreCase))
                     block.Teleport(block.AbsOrigin, new QAngle(0, 0, 0));
 
-                if (rotation == "X+")
-                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X + selectedRotation, block.AbsRotation.Y, block.AbsRotation.Z));
-                if (rotation == "X-")
+                else if (string.Equals(rotation, "x-", StringComparison.OrdinalIgnoreCase))
                     block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X - selectedRotation, block.AbsRotation.Y, block.AbsRotation.Z));
+                else if (string.Equals(rotation, "x+", StringComparison.OrdinalIgnoreCase))
+                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X + selectedRotation, block.AbsRotation.Y, block.AbsRotation.Z));
 
-                if (rotation == "Y+")
-                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y + selectedRotation, block.AbsRotation.Z));
-                if (rotation == "Y-")
+                else if (string.Equals(rotation, "y-", StringComparison.OrdinalIgnoreCase))
                     block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y - selectedRotation, block.AbsRotation.Z));
+                else if (string.Equals(rotation, "y+", StringComparison.OrdinalIgnoreCase))
+                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y + selectedRotation, block.AbsRotation.Z));
 
-                if (rotation == "Z+")
-                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y, block.AbsRotation.Z + selectedRotation));
-                if (rotation == "Z-")
+                else if (string.Equals(rotation, "z-", StringComparison.OrdinalIgnoreCase))
                     block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y, block.AbsRotation.Z - selectedRotation));
+                else if (string.Equals(rotation, "z+", StringComparison.OrdinalIgnoreCase))
+                    block.Teleport(block.AbsOrigin, new QAngle(block.AbsRotation!.X, block.AbsRotation.Y, block.AbsRotation.Z + selectedRotation));
 
-                PrintToChat(player, $"Rotated Block: {ChatColors.White}{rotation} {(rotation == "reset" ? "" : $"by {selectedRotation} units")}");
+                else
+                {
+                    PrintToChat(player, $"Rotate Block: {ChatColors.White}'{rotation}' {ChatColors.Grey}is not a valid option");
+                    return;
+                }
+
+                PrintToChat(player, $"Rotate Block: {ChatColors.White}{rotation} {(string.Equals(rotation, "reset", StringComparison.OrdinalIgnoreCase) ?  $"" : $"by {selectedRotation} Units")}");
                 PlaySound(player, Config.Sounds.Rotate);
             }
         }
-        else PrintToChat(player, "Could not find block to rotate");
+        else PrintToChat(player, $"Rotate Block: Could not find a block");
     }
 }

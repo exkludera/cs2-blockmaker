@@ -2,9 +2,9 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
 using static CounterStrikeSharp.API.Core.Listeners;
-using static BlockBuilder.Plugin;
+using static BlockMaker.Plugin;
 
-namespace BlockBuilder;
+namespace BlockMaker;
 
 public static class Menu
 {
@@ -93,14 +93,13 @@ public static class Menu
         }
     }
 
-
-    [CommandHelper(minArgs: 0, whoCanExecute: CommandUsage.CLIENT_ONLY)]
+    [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
     public static void Command_OpenMenus(CCSPlayerController player, CommandInfo info)
     {
         if (!_.BuildMode(player))
             return;
 
-        switch (_.Config.Menu.Type.ToLower())
+        switch (_.Config.Settings.MenuType.ToLower())
         {
             case "chat":
             case "text":

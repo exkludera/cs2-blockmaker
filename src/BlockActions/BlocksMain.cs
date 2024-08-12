@@ -1,18 +1,18 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Data;
-using static BlockBuilder.VectorUtils;
+using System.Drawing;
+using static BlockMaker.VectorUtils;
 
-namespace BlockBuilder;
+namespace BlockMaker;
 
 public partial class Plugin
 {
-    public Dictionary<CBaseProp, PropData> UsedBlocks = new Dictionary<CBaseProp, PropData>();
+    public Dictionary<CBaseProp, BlockData> UsedBlocks = new Dictionary<CBaseProp, BlockData>();
     public Dictionary<CCSPlayerController, Builder> PlayerHolds = new Dictionary<CCSPlayerController, Builder>();
 
-    public void Command_ToggleBuildMode(CCSPlayerController player, CommandInfo command)
+    public void Command_ToggleBuildMode(CCSPlayerController player)
     {
         if (!HasPermission(player))
         {
@@ -26,6 +26,8 @@ public partial class Plugin
             {
                 playerData[target] = new();
                 PlayerHolds[target] = new();
+                if (HasPermission(target))
+                    playerData[target].Builder = true;
             }
 
             buildMode = true;
@@ -33,6 +35,9 @@ public partial class Plugin
         }
         else
         {
+            playerData.Clear();
+            PlayerHolds.Clear();
+
             buildMode = false;
             PrintToChatAll($"Build Mode: {ChatColors.Red}Disabled");
         }
@@ -48,14 +53,14 @@ public partial class Plugin
             if (player.Buttons.HasFlag(PlayerButtons.Reload))
             {
                 if (PlayerHolds.ContainsKey(player))
-                    RotateRepeat(player, PlayerHolds[player].mainProp!);
+                    RotateRepeat(player, PlayerHolds[player].block!);
 
                 else FirstPressCheck(player);
             }
             else if (player.Buttons.HasFlag(PlayerButtons.Use))
             {
                 if (PlayerHolds.ContainsKey(player))
-                    PressRepeat(player, PlayerHolds[player].mainProp!);
+                    PressRepeat(player, PlayerHolds[player].block!);
 
                 else FirstPressCheck(player);
             }
@@ -63,8 +68,8 @@ public partial class Plugin
             {
                 if (PlayerHolds.ContainsKey(player))
                 {
-                    PlayerHolds[player].mainProp.MoveType = MoveType_t.MOVETYPE_NONE;
-                    PlayerHolds[player].mainProp.AcceptInput("DisableMotion", PlayerHolds[player].mainProp, PlayerHolds[player].mainProp);
+                    PlayerHolds[player].block.Render = Color.White;
+                    Utilities.SetStateChanged(PlayerHolds[player].block, "CBaseModelEntity", "m_clrRender");
 
                     PlayerHolds.Remove(player);
                     PlaySound(player, Config.Sounds.Place);
@@ -87,31 +92,32 @@ public partial class Plugin
         }
     }
 
-
-    public void FirstPress(CCSPlayerController player, CBaseProp prop)
+    public void FirstPress(CCSPlayerController player, CBaseProp block)
     {
-        var hitPoint = TraceShape(new Vector(player.PlayerPawn.Value!.AbsOrigin!.X, player.PlayerPawn.Value!.AbsOrigin!.Y, player.PlayerPawn.Value!.AbsOrigin!.Z + player.PlayerPawn.Value.CameraServices!.OldPlayerViewOffsetZ), player.PlayerPawn.Value!.EyeAngles!, false, true);
+        var hitPoint = RayTrace.TraceShape(new Vector(player.PlayerPawn.Value!.AbsOrigin!.X, player.PlayerPawn.Value!.AbsOrigin!.Y, player.PlayerPawn.Value!.AbsOrigin!.Z + player.PlayerPawn.Value.CameraServices!.OldPlayerViewOffsetZ), player.PlayerPawn.Value!.EyeAngles!, false, true);
 
-        if (prop != null && prop.IsValid && hitPoint != null && hitPoint.HasValue)
+        if (block != null && block.IsValid && hitPoint != null && hitPoint.HasValue)
         {
-            if (CalculateDistance(prop.AbsOrigin!, Vector3toVector(hitPoint.Value)) > 150)
+            if (CalculateDistance(block.AbsOrigin!, RayTrace.Vector3toVector(hitPoint.Value)) > 150)
             {
-                PrintToChat(player, $"{ChatColors.Red}Distance too large between prop and hitPoint");
+                PrintToChat(player, $"{ChatColors.Red}Distance too large between block and aim location");
                 return;
             }
 
-            int distance = (int)CalculateDistance(prop.AbsOrigin!, player.PlayerPawn.Value!.AbsOrigin!);
+            int distance = (int)CalculateDistance(block.AbsOrigin!, player.PlayerPawn.Value!.AbsOrigin!);
 
-            prop.MoveType = MoveType_t.MOVETYPE_VPHYSICS;
-            prop.AcceptInput("EnableMotion", prop, prop);
+            block.Render = ParseColor(Config.Settings.BlockGrabColor);
+            Utilities.SetStateChanged(block, "CBaseModelEntity", "m_clrRender");
 
-            PlayerHolds.Add(player, new Builder() { mainProp = prop, distance = distance });
+            PlayerHolds.Add(player, new Builder() { block = block, distance = distance });
         }
     }
 
     public void PressRepeat(CCSPlayerController player, CBaseProp block)
     {
-        block.Teleport(GetEndXYZ(player, PlayerHolds[player].distance, playerData[player].selectedGrid), null, player.PlayerPawn.Value!.AbsVelocity!);
+        var (position, rotation) = GetEndXYZ(player, block, PlayerHolds[player].distance, playerData[player].Grid, playerData[player].Snapping);
+        
+        block.Teleport(position, rotation);
 
         if (player.Buttons.HasFlag(PlayerButtons.Attack))
         {
@@ -127,43 +133,17 @@ public partial class Plugin
 
     public void RotateRepeat(CCSPlayerController player, CBaseProp block)
     {
-        block.Teleport(GetEndXYZ(player, PlayerHolds[player].distance, playerData[player].selectedGrid), null, player.PlayerPawn.Value!.AbsVelocity!);
+        var (position, rotation) = GetEndXYZ(player, block, PlayerHolds[player].distance, playerData[player].Grid, playerData[player].Snapping);
+
+        block.Teleport(position, rotation);
 
         if (player.Buttons.HasFlag(PlayerButtons.Attack))
         {
-            PlayerHolds[player].mainProp.Teleport(null, new QAngle(PlayerHolds[player].mainProp.AbsRotation!.X, PlayerHolds[player].mainProp.AbsRotation!.Y + 5, PlayerHolds[player].mainProp.AbsRotation!.Z));
+            PlayerHolds[player].block.Teleport(null, new QAngle(PlayerHolds[player].block.AbsRotation!.X, PlayerHolds[player].block.AbsRotation!.Y + 3, PlayerHolds[player].block.AbsRotation!.Z));
         }
         else if (player.Buttons.HasFlag(PlayerButtons.Attack2))
         {
-            PlayerHolds[player].mainProp.Teleport(null, new QAngle(PlayerHolds[player].mainProp.AbsRotation!.X, PlayerHolds[player].mainProp.AbsRotation!.Y, PlayerHolds[player].mainProp.AbsRotation!.Z + 5));
+            PlayerHolds[player].block.Teleport(null, new QAngle(PlayerHolds[player].block.AbsRotation!.X, PlayerHolds[player].block.AbsRotation!.Y, PlayerHolds[player].block.AbsRotation!.Z + 3));
         }
     }
-}
-
-public class Builder
-{
-    public CBaseProp mainProp = null!;
-    public Vector offset = null!;
-    public int distance;
-}
-
-public class PropData
-{
-    public PropData(CBaseProp prop, string blockName, string modelPath)
-    {
-        Entity = prop;
-        Name = blockName;
-        Model = modelPath;
-    }
-
-    public CBaseProp Entity;
-    public string Name { get; private set; }
-    public string Model { get; private set; }
-}
-public class SavePropData
-{
-    public string Name { get; set; } = string.Empty;
-    public string Model { get; set; } = string.Empty;
-    public VectorDTO Position { get; set; } = new VectorDTO(Vector.Zero);
-    public QAngleDTO Rotation { get; set; } = new QAngleDTO(QAngle.Zero);
 }

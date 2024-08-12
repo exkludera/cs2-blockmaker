@@ -4,7 +4,7 @@ using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Modules.Memory;
 using System.Runtime.InteropServices;
 
-namespace BlockBuilder;
+namespace BlockMaker;
 
 public static class VectorUtils
 {
@@ -61,60 +61,39 @@ public static class VectorUtils
         return null;
     }
 
-    public static CBaseProp? GetClosestProp(Vector start, Vector end, double threshold)
+    public static CBaseProp? GetClosestBlock(Vector start, Vector end, double threshold, CBaseProp excludeBlock)
     {
-        CBaseProp? ent = null;
+        CBaseProp? closestBlock = null;
+        double closestDistance = double.MaxValue;
 
         foreach (var prop in Utilities.GetAllEntities().Where(e => e.DesignerName.Contains("prop_physics_override")))
         {
-            //bool isOnLine = IsPointOnLine(start, end, player.PlayerPawn?.Value.CBodyComponent?.SceneNode?.AbsOrigin);
-            var pos = prop.As<CBaseProp>().CBodyComponent!.SceneNode!.AbsOrigin!;
-            pos = new Vector(pos.X, pos.Y, pos.Z + 30);
+            var currentProp = prop.As<CBaseProp>();
+
+            if (currentProp == excludeBlock)
+                continue;
+
+            var pos = currentProp.CBodyComponent!.SceneNode!.AbsOrigin!;
+
             bool isOnLine = IsPointOnLine(start, end, pos, threshold);
 
             if (isOnLine)
             {
-                ent = prop.As<CBaseProp>();
-                break;
+                double distance = CalculateDistance(start, pos);
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    closestBlock = currentProp;
+                }
             }
         }
 
-        return ent;
+        return closestBlock;
     }
 
     public static float CalculateDistance(Vector a, Vector b)
     {
         return (float)Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2) + Math.Pow(a.Z - b.Z, 2));
-    }
-
-    public static Vector GetEndXYZ(CCSPlayerController player, double distance = 250, float grid = 0f)
-    {
-        double karakterX = (float)player.PlayerPawn.Value!.AbsOrigin!.X;
-        double karakterY = (float)player.PlayerPawn.Value.AbsOrigin.Y;
-        double karakterZ = (float)player.PlayerPawn.Value.AbsOrigin.Z + player.PlayerPawn.Value!.CameraServices!.OldPlayerViewOffsetZ;
-
-        // Açý deðerleri
-        double angleA = -player.PlayerPawn.Value.EyeAngles.X;   // (-90, 90) arasýnda
-        double angleB = player.PlayerPawn.Value.EyeAngles.Y; // (-180, 180) arasýnda
-
-        // Açýlarý dereceden radyana çevir
-        double radianA = (Math.PI / 180) * angleA;
-        double radianB = (Math.PI / 180) * angleB;
-
-        // Açýlara göre XYZ koordinatlarýný hesapla
-        double x = karakterX + distance * Math.Cos(radianA) * Math.Cos(radianB);
-        double y = karakterY + distance * Math.Cos(radianA) * Math.Sin(radianB);
-        double z = karakterZ + distance * Math.Sin(radianA);
-
-        //snapping grid
-        if (grid != 0f)
-        {
-            x = (float)Math.Round(x / grid) * grid;
-            y = (float)Math.Round(y / grid) * grid;
-            z = (float)Math.Round(z / grid) * grid;
-        }
-
-        return new Vector((float)x, (float)y, (float)z);
     }
 
     public static Vector AnglesToDirection(Vector angles)
@@ -133,6 +112,84 @@ public static class VectorUtils
     {
         Vector direction = AnglesToDirection(new Vector(angles.X, angles.Y, angles.Z));
         return origin + (direction * units);
+    }
+
+    public static (Vector position, QAngle rotation) GetEndXYZ(CCSPlayerController player, CBaseProp block, double distance = 250, float grid = 0f, bool snapping = false)
+    {
+        Vector playerPos = new Vector(player.PlayerPawn.Value!.AbsOrigin!.X, player.PlayerPawn.Value.AbsOrigin.Y, player.PlayerPawn.Value.AbsOrigin.Z + player.PlayerPawn.Value!.CameraServices!.OldPlayerViewOffsetZ); 
+
+        double angleA = -player.PlayerPawn.Value.EyeAngles.X;
+        double angleB = player.PlayerPawn.Value.EyeAngles.Y;
+
+        double radianA = (Math.PI / 180) * angleA;
+        double radianB = (Math.PI / 180) * angleB;
+
+        double x = playerPos.X + distance * Math.Cos(radianA) * Math.Cos(radianB);
+        double y = playerPos.Y + distance * Math.Cos(radianA) * Math.Sin(radianB);
+        double z = playerPos.Z + distance * Math.Sin(radianA);
+
+        //snapping grid
+        if (grid != 0f)
+        {
+            x = (float)Math.Round(x / grid) * grid;
+            y = (float)Math.Round(y / grid) * grid;
+            z = (float)Math.Round(z / grid) * grid;
+        }
+
+        //End Result
+        Vector endPos = new Vector((float)x, (float)y, (float)z);
+        QAngle endRotation = block.AbsRotation!;
+
+        // Try to snap the position to the closest block
+        if (snapping)
+        {
+            var closestBlock = GetClosestBlock(playerPos, endPos, 64, block);
+            if (closestBlock != null)
+            {
+                endPos = SnapToClosestBlock(endPos, closestBlock);
+                endRotation = closestBlock.AbsRotation!;
+            }
+        }
+
+        return (endPos, endRotation);
+    }
+
+    public static Vector SnapToClosestBlock(Vector currentPos, CBaseProp block)
+    {
+        Vector closestBlockPos = currentPos;
+        float closestDistance = float.MaxValue;
+
+        Vector blockSizeMax = GetBlockSizeMax(block) * 2;
+        Vector blockOrigin = block.AbsOrigin!;
+
+        Vector[] faceOffsets = new Vector[]
+        {
+        new Vector(-blockSizeMax.X, 0, 0), // -X face
+        new Vector(blockSizeMax.X, 0, 0),  // +X face
+        new Vector(0, -blockSizeMax.Y, 0), // -Y face
+        new Vector(0, blockSizeMax.Y, 0),  // +Y face
+        new Vector(0, 0, -blockSizeMax.Z), // -Z face
+        new Vector(0, 0, blockSizeMax.Z)   // +Z face
+        };
+
+        for (int i = 0; i < 6; ++i)
+        {
+            Vector testPos = blockOrigin + faceOffsets[i];
+
+            float distance = CalculateDistance(currentPos, testPos);
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closestBlockPos = testPos;
+            }
+        }
+
+        return closestBlockPos;
+    }
+
+    private static Vector GetBlockSizeMax(CBaseProp block)
+    {
+        return new Vector(block.Collision.Maxs.X, block.Collision.Maxs.Y, block.Collision.Maxs.Z);
     }
 
     public class VectorDTO

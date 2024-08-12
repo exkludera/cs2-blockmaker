@@ -1,225 +1,44 @@
 ﻿using CounterStrikeSharp.API.Core;
 
-public class Menu
+public class Settings
 {
-    public string Type { get; set; } = "html";
-    public string Command { get; set; } = "css_blockmenu,css_blocksmenu,css_buildmenu";
+    public string Prefix { get; set; } = "{purple}[BlockMaker]{default}";
+    public string MenuType { get; set; } = "html";
+    public bool BuildMode { get; set; } = false;
+    public bool BuildModeConfig { get; set; } = false;
+    public string BlockGrabColor { get; set; } = "255,255,255,128";
+    public float[] GridValues { get; set; } = { 0.0f, 8f, 16.0f, 32.0f, 64.0f, 128.0f, 256.0f };
+    public bool AutoSave { get; set; } = false;
+    public int SaveTime { get; set; } = 300;
 }
 
-public class BuildMode
+public class Commands
 {
-    public bool Enabled { get; set; } = false;
+    public bool Enabled { get; set; } = true;
     public string Permission { get; set; } = "@css/root";
-    public string Command { get; set; } = "css_buildmode,css_togglebuild";
+    public string BuildMenu { get; set; } = "blockmenu,blocksmenu,buildmenu";
+    public string BuildMode { get; set; } = "buildmode,togglebuild";
+    public string CreateBlock { get; set; } = "create,block,createblock";
+    public string DeleteBlock { get; set; } = "delete,deleteblock,removeblock";
+    public string RotateBlock { get; set; } = "rotate,rotateblock";
+    public string SaveBlocks { get; set; } = "save,saveblocks";
+    public string ToggleBuilder { get; set; } = "togglebuilder,allowbuilder,allowbuild";
+    public string ToggleSnapping { get; set; } = "snap,togglesnap";
 }
 
 public class Sounds
 {
     public bool Enabled { get; set; } = true;
-    public string Rotate { get; set; } = "sounds/buttons/button9.vsnd";
     public string Create { get; set; } = "sounds/buttons/blip1.vsnd";
-    public string Remove { get; set; } = "sounds/buttons/blip2.vsnd";
+    public string Delete { get; set; } = "sounds/buttons/blip2.vsnd";
     public string Place { get; set; } = "sounds/buttons/latchunlocked2.vsnd";
+    public string Rotate { get; set; } = "sounds/buttons/button9.vsnd";
     public string Save { get; set; } = "sounds/buttons/bell1.vsnd";
-}
-
-public class AutoSave
-{
-    public bool Enabled { get; set; } = false;
-    public int Time { get; set; } = 120;
-}
-
-public class BlockInfo
-{
-    public string Small { get; set; } = string.Empty;
-    public string Medium { get; set; } = string.Empty;
-    public string Large { get; set; } = string.Empty;
-    public string Pole { get; set; } = string.Empty;
 }
 
 public class Config : BasePluginConfig
 {
-    public string Prefix { get; set; } = "{purple}[BlockBuilder]{default}";
-    public Menu Menu { get; set; } = new Menu();
-    public BuildMode BuildMode { get; set; } = new BuildMode();
+    public Settings Settings { get; set; } = new Settings();
+    public Commands Commands { get; set; } = new Commands();
     public Sounds Sounds { get; set; } = new Sounds();
-    public AutoSave AutoSave { get; set; } = new AutoSave();
-    public Dictionary<string, BlockInfo> Blocks { get; set; } = new()
-    {
-        { "PLATFORM", new BlockInfo {
-            Small = "models/blockbuilder/small_platform.vmdl",
-            Medium = "models/blockbuilder/platform.vmdl",
-            Large = "models/blockbuilder/large_platform.vmdl",
-            Pole = "models/blockbuilder/pole_platform.vmdl",
-        } },
-        { "BHOP", new BlockInfo {
-            Small = "models/blockbuilder/small_bhop.vmdl",
-            Medium = "models/blockbuilder/bhop.vmdl",
-            Large = "models/blockbuilder/large_bhop.vmdl",
-            Pole = "models/blockbuilder/pole_bhop.vmdl",
-        } },
-        { "NOFALLDMG", new BlockInfo {
-            Small = "models/blockbuilder/small_nofalldmg.vmdl",
-            Medium = "models/blockbuilder/nofalldmg.vmdl",
-            Large = "models/blockbuilder/large_nofalldmg.vmdl",
-            Pole = "models/blockbuilder/pole_nofalldmg.vmdl",
-        } },
-        { "HONEY", new BlockInfo {
-            Small = "models/blockbuilder/small_honey.vmdl",
-            Medium = "models/blockbuilder/honey.vmdl",
-            Large = "models/blockbuilder/large_honey.vmdl",
-            Pole = "models/blockbuilder/pole_honey.vmdl",
-        } },
-        { "HEALTH", new BlockInfo {
-            Small = "models/blockbuilder/small_health.vmdl",
-            Medium = "models/blockbuilder/health.vmdl",
-            Large = "models/blockbuilder/large_health.vmdl",
-            Pole = "models/blockbuilder/pole_health.vmdl",
-        } },
-        { "GRENADE", new BlockInfo {
-            Small = "models/blockbuilder/small_he.vmdl",
-            Medium = "models/blockbuilder/he.vmdl",
-            Large = "models/blockbuilder/large_he.vmdl",
-            Pole = "models/blockbuilder/pole_he.vmdl",
-        } },
-        { "GRAVITY", new BlockInfo {
-            Small = "models/blockbuilder/small_gravity.vmdl",
-            Medium = "models/blockbuilder/gravity.vmdl",
-            Large = "models/blockbuilder/large_gravity.vmdl",
-            Pole = "models/blockbuilder/pole_gravity.vmdl",
-        } },
-        { "GLASS", new BlockInfo {
-            Small = "models/blockbuilder/small_glass.vmdl",
-            Medium = "models/blockbuilder/glass.vmdl",
-            Large = "models/blockbuilder/large_glass.vmdl",
-            Pole = "models/blockbuilder/pole_glass.vmdl",
-        } },
-        { "FROST", new BlockInfo {
-            Small = "models/blockbuilder/small_frost.vmdl",
-            Medium = "models/blockbuilder/frost.vmdl",
-            Large = "models/blockbuilder/large_frost.vmdl",
-            Pole = "models/blockbuilder/pole_frost.vmdl",
-        } },
-        { "FLASH", new BlockInfo {
-            Small = "models/blockbuilder/small_flash.vmdl",
-            Medium = "models/blockbuilder/flash.vmdl",
-            Large = "models/blockbuilder/large_flash.vmdl",
-            Pole = "models/blockbuilder/pole_flash.vmdl",
-        } },
-        { "FIRE", new BlockInfo {
-            Small = "models/blockbuilder/small_fire.vmdl",
-            Medium = "models/blockbuilder/fire.vmdl",
-            Large = "models/blockbuilder/large_fire.vmdl",
-            Pole = "models/blockbuilder/pole_fire.vmdl",
-        } },
-        { "DELAY", new BlockInfo {
-            Small = "models/blockbuilder/small_delay.vmdl",
-            Medium = "models/blockbuilder/delay.vmdl",
-            Large = "models/blockbuilder/large_delay.vmdl",
-            Pole = "models/blockbuilder/pole_delay.vmdl",
-        } },
-        { "DEATH", new BlockInfo {
-            Small = "models/blockbuilder/small_death.vmdl",
-            Medium = "models/blockbuilder/death.vmdl",
-            Large = "models/blockbuilder/large_death.vmdl",
-            Pole = "models/blockbuilder/pole_death.vmdl",
-        } },
-        { "DAMAGE", new BlockInfo {
-            Small = "models/blockbuilder/small_damage.vmdl",
-            Medium = "models/blockbuilder/damage.vmdl",
-            Large = "models/blockbuilder/large_damage.vmdl",
-            Pole = "models/blockbuilder/pole_damage.vmdl",
-        } },
-        { "DEAGLE", new BlockInfo {
-            Small = "models/blockbuilder/small_deagle.vmdl",
-            Medium = "models/blockbuilder/deagle.vmdl",
-            Large = "models/blockbuilder/large_deagle.vmdl",
-            Pole = "models/blockbuilder/pole_deagle.vmdl",
-        } },
-        { "AWP", new BlockInfo {
-            Small = "models/blockbuilder/small_awp.vmdl",
-            Medium = "models/blockbuilder/awp.vmdl",
-            Large = "models/blockbuilder/large_awp.vmdl",
-            Pole = "models/blockbuilder/pole_awp.vmdl",
-        } },
-        { "TRAMPOLINE", new BlockInfo {
-            Small = "models/blockbuilder/small_tramp.vmdl",
-            Medium = "models/blockbuilder/tramp.vmdl",
-            Large = "models/blockbuilder/large_tramp.vmdl",
-            Pole = "models/blockbuilder/pole_tramp.vmdl",
-        } },
-        { "STEALTH", new BlockInfo {
-            Small = "models/blockbuilder/small_stealth.vmdl",
-            Medium = "models/blockbuilder/stealth.vmdl",
-            Large = "models/blockbuilder/large_stealth.vmdl",
-            Pole = "models/blockbuilder/pole_stealth.vmdl",
-        } },
-        { "SPEEDBOOST", new BlockInfo {
-            Small = "models/blockbuilder/small_speedboost.vmdl",
-            Medium = "models/blockbuilder/speedboost.vmdl",
-            Large = "models/blockbuilder/large_speedboost.vmdl",
-            Pole = "models/blockbuilder/pole_speedboost.vmdl",
-        } },
-        { "SPEED", new BlockInfo {
-            Small = "models/blockbuilder/small_speed.vmdl",
-            Medium = "models/blockbuilder/speed.vmdl",
-            Large = "models/blockbuilder/large_speed.vmdl",
-            Pole = "models/blockbuilder/pole_speed.vmdl",
-        } },
-        { "T-BARRIER", new BlockInfo {
-            Small = "models/blockbuilder/small_tbarrier.vmdl",
-            Medium = "models/blockbuilder/tbarrier.vmdl",
-            Large = "models/blockbuilder/large_tbarrier.vmdl",
-            Pole = "models/blockbuilder/pole_tbarrier.vmdl",
-        } },
-        { "CT-BARRIER", new BlockInfo {
-            Small = "models/blockbuilder/small_ctbarrier.vmdl",
-            Medium = "models/blockbuilder/ctbarrier.vmdl",
-            Large = "models/blockbuilder/large_ctbarrier.vmdl",
-            Pole = "models/blockbuilder/pole_ctbarrier.vmdl",
-        } },
-        { "SLAP", new BlockInfo {
-            Small = "models/blockbuilder/small_slap.vmdl",
-            Medium = "models/blockbuilder/slap.vmdl",
-            Large = "models/blockbuilder/large_slap.vmdl",
-            Pole = "models/blockbuilder/pole_slap.vmdl",
-        } },
-        { "RANDOM", new BlockInfo {
-            Small = "models/blockbuilder/small_random.vmdl",
-            Medium = "models/blockbuilder/random.vmdl",
-            Large = "models/blockbuilder/large_random.vmdl",
-            Pole = "models/blockbuilder/pole_random.vmdl",
-        } },
-        { "NUKE", new BlockInfo {
-            Small = "models/blockbuilder/small_nuke.vmdl",
-            Medium = "models/blockbuilder/nuke.vmdl",
-            Large = "models/blockbuilder/large_nuke.vmdl",
-            Pole = "models/blockbuilder/pole_nuke.vmdl",
-        } },
-        { "NOSLOWDOWN", new BlockInfo {
-            Small = "models/blockbuilder/small_noslowdown.vmdl",
-            Medium = "models/blockbuilder/noslowdown.vmdl",
-            Large = "models/blockbuilder/large_noslowdown.vmdl",
-            Pole = "models/blockbuilder/pole_noslowdown.vmdl",
-        } },
-        { "INVINCIBILITY", new BlockInfo {
-            Small = "models/blockbuilder/small_invincibility.vmdl",
-            Medium = "models/blockbuilder/invincibility.vmdl",
-            Large = "models/blockbuilder/large_invincibility.vmdl",
-            Pole = "models/blockbuilder/pole_invincibility.vmdl",
-        } },
-        { "ICE", new BlockInfo {
-            Small = "models/blockbuilder/small_ice.vmdl",
-            Medium = "models/blockbuilder/ice.vmdl",
-            Large = "models/blockbuilder/large_ice.vmdl",
-            Pole = "models/blockbuilder/pole_ice.vmdl",
-        } },
-        { "CAMOUFLAGE", new BlockInfo {
-            Small = "models/blockbuilder/small_camouflage.vmdl",
-            Medium = "models/blockbuilder/camouflage.vmdl",
-            Large = "models/blockbuilder/large_camouflage.vmdl",
-            Pole = "models/blockbuilder/pole_camouflage.vmdl",
-        } },
-    };
-
 }
