@@ -56,7 +56,7 @@ public partial class Plugin
             block.DispatchSpawn();
             block.SetModel(blockModel);
 
-            block.Globalname = blockType;
+            block.Entity!.Name = blockType;
             block.EnableUseOutput = true;
             block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags = (uint)(block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags & ~(1 << 2));
 
