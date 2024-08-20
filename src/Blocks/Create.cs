@@ -8,14 +8,10 @@ namespace BlockMaker;
 
 public partial class Plugin
 {
-    public void Command_CreateBlock(CCSPlayerController player)
+    public Dictionary<CBaseProp, BlockData> UsedBlocks = new Dictionary<CBaseProp, BlockData>();
+
+    public void CreateBlock(CCSPlayerController player)
     {
-        if (player == null || player.NotValid())
-            return;
-
-        if (!BuildMode(player))
-            return;
-
         var hitPoint = RayTrace.TraceShape(new Vector(player.PlayerPawn.Value!.AbsOrigin!.X, player.PlayerPawn.Value!.AbsOrigin!.Y, player.PlayerPawn.Value!.AbsOrigin!.Z + player.PlayerPawn.Value.CameraServices!.OldPlayerViewOffsetZ), player.PlayerPawn.Value!.EyeAngles!, false, true);
 
         if (hitPoint == null && !hitPoint.HasValue)
@@ -24,7 +20,7 @@ public partial class Plugin
             return;
         }
 
-        string selectedBlock = playerData[player].Block;
+        string selectedBlock = playerData[player].BlockType;
 
         if (string.IsNullOrEmpty(selectedBlock))
         {
@@ -32,13 +28,13 @@ public partial class Plugin
             return;
         }
 
-        string blockmodel = GetModelFromSelectedBlock(player, playerData[player].Size);
+        string blockmodel = GetModelFromSelectedBlock(player, playerData[player].BlockSize);
 
         try
         {
-            CreateBlock(selectedBlock, blockmodel, playerData[player].Size, RayTrace.Vector3toVector(hitPoint.Value), new QAngle());
+            CreateBlockEntity(selectedBlock, blockmodel, playerData[player].BlockSize, RayTrace.Vector3toVector(hitPoint.Value), new QAngle());
 
-            PrintToChat(player, $"Create Block: Created type: {ChatColors.White}{playerData[player].Block}{ChatColors.Grey}, size: {ChatColors.White}{playerData[player].Size}");
+            PrintToChat(player, $"Create Block: Created type: {ChatColors.White}{playerData[player].BlockType}{ChatColors.Grey}, size: {ChatColors.White}{playerData[player].BlockSize}");
             PlaySound(player, Config.Sounds.Create);
         }
         catch
@@ -48,7 +44,7 @@ public partial class Plugin
         }
     }
 
-    public void CreateBlock(string blockType, string blockModel, string blockSize, Vector blockPosition, QAngle blockRotation)
+    public void CreateBlockEntity(string blockType, string blockModel, string blockSize, Vector blockPosition, QAngle blockRotation)
     {
         var block = Utilities.CreateEntityByName<CPhysicsPropOverride>("prop_physics_override");
         if (block != null && block.IsValid)
@@ -56,7 +52,7 @@ public partial class Plugin
             block.DispatchSpawn();
             block.SetModel(blockModel);
 
-            block.Globalname = blockType;
+            block.Entity!.Name = blockType;
             block.EnableUseOutput = true;
             block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags = (uint)(block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags & ~(1 << 2));
 
@@ -85,12 +81,17 @@ public partial class Plugin
             }
 
             foreach (var blockData in blockDataList)
-                CreateBlock(blockData.Name, blockData.Model, blockData.Size, new Vector(blockData.Position.X, blockData.Position.Y, blockData.Position.Z), new QAngle(blockData.Rotation.Pitch, blockData.Rotation.Yaw, blockData.Rotation.Roll));
+                CreateBlockEntity(blockData.Name, blockData.Model, blockData.Size, new Vector(blockData.Position.X, blockData.Position.Y, blockData.Position.Z), new QAngle(blockData.Rotation.Pitch, blockData.Rotation.Yaw, blockData.Rotation.Roll));
         }
         else
         {
             PrintToChatAll($"{ChatColors.Red}{noSpawnBlocksMessage()}");
             Logger.LogError(noSpawnBlocksMessage());
         }
+    }
+
+    private string noSpawnBlocksMessage()
+    {
+        return $"Failed to spawn Blocks. File for {GetMapName()} is empty or invalid";
     }
 }

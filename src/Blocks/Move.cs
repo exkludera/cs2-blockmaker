@@ -9,39 +9,7 @@ namespace BlockMaker;
 
 public partial class Plugin
 {
-    public Dictionary<CBaseProp, BlockData> UsedBlocks = new Dictionary<CBaseProp, BlockData>();
     public Dictionary<CCSPlayerController, Builder> PlayerHolds = new Dictionary<CCSPlayerController, Builder>();
-
-    public void Command_ToggleBuildMode(CCSPlayerController player)
-    {
-        if (!HasPermission(player))
-        {
-            PrintToChatAll($"{ChatColors.Red}You don't have permission to change Build Mode");
-            return;
-        }
-
-        if (!buildMode)
-        {
-            foreach (var target in Utilities.GetPlayers().Where(p => !p.IsBot && !playerData.ContainsKey(p) && !PlayerHolds.ContainsKey(p)))
-            {
-                playerData[target] = new();
-                PlayerHolds[target] = new();
-                if (HasPermission(target))
-                    playerData[target].Builder = true;
-            }
-
-            buildMode = true;
-            PrintToChatAll($"Build Mode: {ChatColors.Green}Enabled");
-        }
-        else
-        {
-            playerData.Clear();
-            PlayerHolds.Clear();
-
-            buildMode = false;
-            PrintToChatAll($"Build Mode: {ChatColors.Red}Disabled");
-        }
-    }
 
     public void OnTick()
     {
@@ -55,14 +23,14 @@ public partial class Plugin
                 if (PlayerHolds.ContainsKey(player))
                     RotateRepeat(player, PlayerHolds[player].block!);
 
-                else FirstPressCheck(player);
+                else GrabBlock(player);
             }
             else if (player.Buttons.HasFlag(PlayerButtons.Use))
             {
                 if (PlayerHolds.ContainsKey(player))
-                    PressRepeat(player, PlayerHolds[player].block!);
+                    DistanceRepeat(player, PlayerHolds[player].block!);
 
-                else FirstPressCheck(player);
+                else GrabBlock(player);
             }
             else
             {
@@ -78,7 +46,7 @@ public partial class Plugin
         }
     }
 
-    public void FirstPressCheck(CCSPlayerController player)
+    public void GrabBlock(CCSPlayerController player)
     {
         var block = player.GetBlockAimTarget();
         if (block != null)
@@ -88,11 +56,11 @@ public partial class Plugin
                 PrintToChat(player, $"{ChatColors.Red}Block not found in UsedBlocks");
                 return;
             }
-            FirstPress(player, block);
+            GrabBlockAdd(player, block);
         }
     }
 
-    public void FirstPress(CCSPlayerController player, CBaseProp block)
+    public void GrabBlockAdd(CCSPlayerController player, CBaseProp block)
     {
         var hitPoint = RayTrace.TraceShape(new Vector(player.PlayerPawn.Value!.AbsOrigin!.X, player.PlayerPawn.Value!.AbsOrigin!.Y, player.PlayerPawn.Value!.AbsOrigin!.Z + player.PlayerPawn.Value.CameraServices!.OldPlayerViewOffsetZ), player.PlayerPawn.Value!.EyeAngles!, false, true);
 
@@ -113,9 +81,9 @@ public partial class Plugin
         }
     }
 
-    public void PressRepeat(CCSPlayerController player, CBaseProp block)
+    public void DistanceRepeat(CCSPlayerController player, CBaseProp block)
     {
-        var (position, rotation) = GetEndXYZ(player, block, PlayerHolds[player].distance, playerData[player].Grid, playerData[player].Snapping);
+        var (position, rotation) = GetEndXYZ(player, block, PlayerHolds[player].distance, playerData[player].Grid, playerData[player].GridValue, playerData[player].Snapping);
         
         block.Teleport(position, rotation);
 
@@ -133,7 +101,7 @@ public partial class Plugin
 
     public void RotateRepeat(CCSPlayerController player, CBaseProp block)
     {
-        var (position, rotation) = GetEndXYZ(player, block, PlayerHolds[player].distance, playerData[player].Grid, playerData[player].Snapping);
+        var (position, rotation) = GetEndXYZ(player, block, PlayerHolds[player].distance, playerData[player].Grid, playerData[player].GridValue, playerData[player].Snapping);
 
         block.Teleport(position, rotation);
 

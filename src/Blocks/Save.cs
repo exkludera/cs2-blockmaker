@@ -1,5 +1,4 @@
-﻿using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Utils;
+﻿using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using static BlockMaker.VectorUtils;
@@ -8,17 +7,6 @@ namespace BlockMaker;
 
 public partial class Plugin
 {
-    public void Command_SaveBlocks(CCSPlayerController player)
-    {
-        if (player == null || player.NotValid())
-            return;
-
-        if (!BuildMode(player))
-            return;
-
-        SaveBlocks();
-    }
-
     public void SaveBlocks()
     {
         if (!File.Exists(savedBlocksPath))

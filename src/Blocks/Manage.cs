@@ -5,14 +5,8 @@ namespace BlockMaker;
 
 public partial class Plugin
 {
-    public void Command_DeleteBlock(CCSPlayerController player)
+    public void DeleteBlock(CCSPlayerController player)
     {
-        if (player == null || player.NotValid())
-            return;
-
-        if (!BuildMode(player))
-            return;
-
         var entity = player.GetBlockAimTarget();
 
         if (entity != null)
@@ -29,17 +23,11 @@ public partial class Plugin
         else PrintToChat(player, "Delete Block: Could not find a block");
     }
 
-    public void Command_RotateBlock(CCSPlayerController player, string rotation)
+    public void RotateBlock(CCSPlayerController player, string rotation)
     {
-        if (player == null || player.NotValid())
-            return;
-
-        if (!BuildMode(player))
-            return;
-
         var block = player.GetBlockAimTarget();
 
-        float selectedRotation = playerData[player].Rotation;
+        float selectedRotation = playerData[player].RotationValue;
 
         if (block != null)
         {

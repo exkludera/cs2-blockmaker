@@ -22,7 +22,9 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         RegisterEventHandler<EventRoundEnd>(EventRoundEnd);
         RegisterEventHandler<EventPlayerDeath>(EventPlayerDeath);
 
-        HookEntityOutput("trigger_multiple", "OnStartTouch", OnStartTouch, HookMode.Pre);
+        HookEntityOutput("*", "OnStartTouch", OnStartTouch, HookMode.Pre);
+        HookEntityOutput("*", "OnTouching", OnTouching, HookMode.Pre);
+        HookEntityOutput("*", "OnEndTouch", OnEndTouch, HookMode.Pre);
     }
 
     public void UnregisterEvents()
@@ -37,12 +39,23 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         DeregisterEventHandler<EventRoundEnd>(EventRoundEnd);
         DeregisterEventHandler<EventPlayerDeath>(EventPlayerDeath);
 
-        UnhookEntityOutput("trigger_multiple", "OnStartTouch", OnStartTouch, HookMode.Pre);
+        UnhookEntityOutput("*", "OnStartTouch", OnStartTouch, HookMode.Pre);
+        UnhookEntityOutput("*", "OnTouching", OnTouching, HookMode.Pre);
+        UnhookEntityOutput("*", "OnEndTouch", OnEndTouch, HookMode.Pre);
     }
 
     private HookResult OnStartTouch(CEntityIOOutput output, string name, CEntityInstance activator, CEntityInstance caller, CVariant value, float delay)
     {
-        //PrintToChatAll("OnStartTouch: " + caller.DesignerName + " - " + activator.DesignerName);
+        return HookResult.Continue;
+    }
+
+    private HookResult OnTouching(CEntityIOOutput output, string name, CEntityInstance activator, CEntityInstance caller, CVariant value, float delay)
+    {
+        return HookResult.Continue;
+    }
+
+    private HookResult OnEndTouch(CEntityIOOutput output, string name, CEntityInstance activator, CEntityInstance caller, CVariant value, float delay)
+    {
         return HookResult.Continue;
     }
 

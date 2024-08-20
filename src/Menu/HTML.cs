@@ -7,63 +7,61 @@ namespace BlockMaker;
 
 public static class MenuHTML
 {
+    private static string? BlockType;
+    private static string? BlockSize;
+    private static bool Grid;
+    private static float GridValue;
+    private static float RotationValue;
+
     public static void OpenMenu(CCSPlayerController player)
     {
         CenterHtmlMenu MainMenu = new("Block Builder", _);
 
+        BlockType = _.playerData[player].BlockType;
+        BlockSize = _.playerData[player].BlockSize;
+        Grid = _.playerData[player].Grid;
+        GridValue = _.playerData[player].GridValue;
+        RotationValue = _.playerData[player].RotationValue;
+
         MainMenu.AddMenuOption("Create Block", (player, menuOption) =>
         {
-            _.Command_CreateBlock(player);
+            _.Command_CreateBlock(player, false);
         });
 
         MainMenu.AddMenuOption("Delete Block", (player, menuOption) =>
         {
-            _.Command_DeleteBlock(player);
+            _.Command_DeleteBlock(player, false);
         });
 
         MainMenu.AddMenuOption("Rotate Block", (player, menuOption) =>
         {
+            float[] rotateValues = _.Config.Settings.RotationValues;
             string[] rotateOptions = { "Reset", "X-", "X+", "Y-", "Y+", "Z-", "Z+" };
 
-            RotateMenuOptions(player, rotateOptions);
+            RotateMenuOptions(player, rotateOptions, rotateValues);
         });
 
         MainMenu.AddMenuOption($"Block Settings", (player, menuOption) =>
         {
             CenterHtmlMenu BlockMenu = new("Block Settings", _);
 
-            BlockMenu.AddMenuOption($"Size: {_.playerData[player].Size}", (player, menuOption) =>
+            BlockMenu.AddMenuOption($"Size: " + BlockSize, (player, menuOption) =>
             {
                 string[] sizeValues = { "Small", "Medium", "Large", "Pole" };
 
                 SizeMenuOptions(player, MainMenu, sizeValues);
             });
 
-            BlockMenu.AddMenuOption($"Grid: {_.playerData[player].Grid} Units", (player, menuOption) =>
+            BlockMenu.AddMenuOption($"Grid: {GridValue} Units", (player, menuOption) =>
             {
                 float[] gridValues = _.Config.Settings.GridValues;
 
-                GridMenuOptions(player, MainMenu, gridValues);
+                GridMenuOptions(player, gridValues);
             });
 
-            BlockMenu.AddMenuOption($"Type: {_.playerData[player].Block}", (player, menuOption) =>
+            BlockMenu.AddMenuOption($"Type: {BlockType}", (player, menuOption) =>
             {
-                CenterHtmlMenu TypeMenu = new("Select Type", _);
-
-                foreach (var block in _.BlockModels)
-                {
-                    string blockName = block.Key;
-
-                    TypeMenu.AddMenuOption(blockName, (player, menuOption) =>
-                    {
-                        _.playerData[player].Block = blockName;
-
-                        _.PrintToChat(player, $"Selected Block: {ChatColors.White}{blockName}");
-
-                        MenuManager.OpenCenterHtmlMenu(_, player, MainMenu);
-                    });
-                }
-                MenuManager.OpenCenterHtmlMenu(_, player, TypeMenu);
+                TypeMenuOptions(player);
             });
 
             MenuManager.OpenCenterHtmlMenu(_, player, BlockMenu);
@@ -75,14 +73,14 @@ public static class MenuHTML
 
             SettingsMenu.AddMenuOption("Toggle BuildMode", (player, menuOption) =>
             {
-                _.Command_ToggleBuildMode(player);
+                _.Command_BuildMode(player, false);
 
                 MenuManager.OpenCenterHtmlMenu(_, player, MainMenu);
             });
 
             SettingsMenu.AddMenuOption("Save Blocks", (player, menuOption) =>
             {
-                _.Command_SaveBlocks(player);
+                _.Command_SaveBlocks(player, false);
 
                 MenuManager.OpenCenterHtmlMenu(_, player, MainMenu);
             });
@@ -93,38 +91,42 @@ public static class MenuHTML
         MenuManager.OpenCenterHtmlMenu(_, player, MainMenu);
     }
 
-    private static void RotateMenuOptions(CCSPlayerController player, string[] rotateOptions)
+    private static void RotateMenuOptions(CCSPlayerController player, string[] rotateOptions, float[] rotateValues)
     {
-        CenterHtmlMenu RotateMenu = new("Rotate Block", _);
+        RotationValue = _.playerData[player].RotationValue;
 
-        RotateMenu.AddMenuOption($"Value: {_.playerData[player].Rotation} Units", (p, option) =>
+        CenterHtmlMenu RotateMenu = new($"Rotate Block ({RotationValue} Units)", _);
+
+        RotateMenu.AddMenuOption($"Select Units", (p, option) =>
         {
-            float[] rotateValues = { 10.0f, 30.0f, 45.0f, 60.0f, 90.0f, 120.0f };
-            RotateValuesMenuOptions(player, RotateMenu, rotateValues);
+            RotateValuesMenuOptions(player, rotateOptions, rotateValues);
         });
 
         foreach (string rotateOption in rotateOptions)
         {
             RotateMenu.AddMenuOption(rotateOption, (p, option) =>
             {
-                _.Command_RotateBlock(p, rotateOption);
+                _.Command_RotateBlock(p, false, rotateOption);
             });
         }
 
         MenuManager.OpenCenterHtmlMenu(_, player, RotateMenu);
     }
 
-    private static void RotateValuesMenuOptions(CCSPlayerController player, CenterHtmlMenu RotateMenu, float[] rotateValues)
+    private static void RotateValuesMenuOptions(CCSPlayerController player, string[] rotateOptions, float[] rotateValues)
     {
-        CenterHtmlMenu RotateValuesMenu = new("Rotate Values", _);
+        CenterHtmlMenu RotateValuesMenu = new($"Rotate Values", _);
 
         foreach (float rotateValueOption in rotateValues)
         {
             RotateValuesMenu.AddMenuOption(rotateValueOption.ToString() + " Units", (p, option) =>
             {
-                _.playerData[p].Rotation = rotateValueOption;
+                _.playerData[p].RotationValue = rotateValueOption;
 
                 _.PrintToChat(player, $"Selected Rotation Value: {ChatColors.White}{rotateValueOption} Units");
+
+                MenuManager.CloseActiveMenu(player);
+                RotateMenuOptions(player, rotateOptions, rotateValues);
             });
         }
 
@@ -133,39 +135,76 @@ public static class MenuHTML
 
     private static void SizeMenuOptions(CCSPlayerController player, CenterHtmlMenu openMainMenu, string[] sizeValues)
     {
-        CenterHtmlMenu SizeMenu = new("Select Size", _);
+        BlockSize = _.playerData[player].BlockSize;
+
+        CenterHtmlMenu SizeMenu = new($"Select Size ({BlockSize})", _);
 
         foreach (string sizeValue in sizeValues)
         {
             SizeMenu.AddMenuOption(sizeValue, (p, option) =>
             {
-                _.playerData[player].Size = sizeValue;
+                _.playerData[player].BlockSize = sizeValue;
 
                 _.PrintToChat(p, $"Selected Size: {ChatColors.White}{sizeValue}");
 
-                MenuManager.OpenCenterHtmlMenu(_, player, openMainMenu);
+                MenuManager.CloseActiveMenu(player);
+                SizeMenuOptions(player, openMainMenu, sizeValues);
             });
         }
 
         MenuManager.OpenCenterHtmlMenu(_, player, SizeMenu);
     }
 
-    private static void GridMenuOptions(CCSPlayerController player, CenterHtmlMenu openMainMenu, float[] gridValues)
+    private static void GridMenuOptions(CCSPlayerController player, float[] gridValues)
     {
-        CenterHtmlMenu GridMenu = new("Select Grid", _);
+        Grid = _.playerData[player].Grid;
+        GridValue = _.playerData[player].GridValue;
+
+        CenterHtmlMenu GridMenu = new($"Select Grid ({(Grid ? "Enabled" : "Disabled")} - {GridValue})", _);
+
+        GridMenu.AddMenuOption($"Toggle Grid", (p, option) =>
+        {
+            _.Command_Grid(player, false);
+
+            MenuManager.CloseActiveMenu(player);
+            GridMenuOptions(player, gridValues);
+        });
 
         foreach (float gridValue in gridValues)
         {
             GridMenu.AddMenuOption(gridValue.ToString() + " Units", (p, option) =>
             {
-                _.playerData[player].Grid = gridValue;
+                _.playerData[player].GridValue = gridValue;
 
                 _.PrintToChat(p, $"Selected Grid: {ChatColors.White}{gridValue} Units");
 
-                MenuManager.OpenCenterHtmlMenu(_, player, openMainMenu);
+                MenuManager.CloseActiveMenu(player);
+                GridMenuOptions(player, gridValues);
             });
         }
 
         MenuManager.OpenCenterHtmlMenu(_, player, GridMenu);
+    }
+
+    private static void TypeMenuOptions(CCSPlayerController player)
+    {
+        BlockType = _.playerData[player].BlockType;
+        CenterHtmlMenu TypeMenu = new($"Select Type ({BlockType})", _);
+
+        foreach (var block in _.BlockModels)
+        {
+            string blockName = block.Key;
+
+            TypeMenu.AddMenuOption(blockName, (player, menuOption) =>
+            {
+                _.playerData[player].BlockType = blockName;
+
+                _.PrintToChat(player, $"Selected Block: {ChatColors.White}{blockName}");
+
+                MenuManager.CloseActiveMenu(player);
+                TypeMenuOptions(player);
+            });
+        }
+        MenuManager.OpenCenterHtmlMenu(_, player, TypeMenu);
     }
 }

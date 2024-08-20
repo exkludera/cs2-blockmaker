@@ -7,18 +7,30 @@ namespace BlockMaker;
 
 public static class MenuChat
 {
+    private static string? BlockType;
+    private static string? BlockSize;
+    private static bool Grid;
+    private static float GridValue;
+    private static float RotationValue;
+
     public static void OpenMenu(CCSPlayerController player)
     {
         ChatMenu MainMenu = new("Block Builder");
 
+        BlockType = _.playerData[player].BlockType;
+        BlockSize = _.playerData[player].BlockSize;
+        Grid = _.playerData[player].Grid;
+        GridValue = _.playerData[player].GridValue;
+        RotationValue = _.playerData[player].RotationValue;
+
         MainMenu.AddMenuOption("Create Block", (player, menuOption) =>
         {
-            _.Command_CreateBlock(player);
+            _.Command_CreateBlock(player, false);
         });
 
         MainMenu.AddMenuOption("Delete Block", (player, menuOption) =>
         {
-            _.Command_DeleteBlock(player);
+            _.Command_DeleteBlock(player, false);
         });
 
         MainMenu.AddMenuOption("Rotate Block", (player, menuOption) =>
@@ -32,21 +44,21 @@ public static class MenuChat
         {
             ChatMenu BlockMenu = new("Block Settings");
 
-            BlockMenu.AddMenuOption($"Size: {_.playerData[player].Size}", (player, menuOption) =>
+            BlockMenu.AddMenuOption($"Size: " + BlockSize, (player, menuOption) =>
             {
                 string[] sizeValues = { "Small", "Medium", "Large", "Pole" };
 
                 SizeMenuOptions(player, MainMenu, sizeValues);
             });
 
-            BlockMenu.AddMenuOption($"Grid: {_.playerData[player].Grid} Units", (player, menuOption) =>
+            BlockMenu.AddMenuOption($"Grid: {GridValue} Units", (player, menuOption) =>
             {
-                float[] gridValues = { 0.0f, 16.0f, 32.0f, 64.0f, 128.0f, 256.0f, 512.0f };
+                float[] gridValues = _.Config.Settings.GridValues;
 
-                GridMenuOptions(player, MainMenu, gridValues);
+                GridMenuOptions(player, gridValues);
             });
 
-            BlockMenu.AddMenuOption($"Type: {_.playerData[player].Block}", (player, menuOption) =>
+            BlockMenu.AddMenuOption($"Type: " + BlockType, (player, menuOption) =>
             {
                 ChatMenu TypeMenu = new("Select Type");
 
@@ -56,7 +68,7 @@ public static class MenuChat
 
                     TypeMenu.AddMenuOption(blockName, (player, menuOption) =>
                     {
-                        _.playerData[player].Block = blockName;
+                        _.playerData[player].BlockType = blockName;
 
                         _.PrintToChat(player, $"Selected Block: {ChatColors.White}{blockName}");
 
@@ -75,14 +87,14 @@ public static class MenuChat
 
             SettingsMenu.AddMenuOption("Toggle BuildMode", (player, menuOption) =>
             {
-                _.Command_ToggleBuildMode(player);
+                _.Command_BuildMode(player, false);
 
                 MenuManager.OpenChatMenu(player, MainMenu);
             });
 
             SettingsMenu.AddMenuOption("Save Blocks", (player, menuOption) =>
             {
-                _.Command_SaveBlocks(player);
+                _.Command_SaveBlocks(player, false);
 
                 MenuManager.OpenChatMenu(player, MainMenu);
             });
@@ -97,7 +109,7 @@ public static class MenuChat
     {
         ChatMenu RotateMenu = new("Rotate Block");
 
-        RotateMenu.AddMenuOption($"Value: {_.playerData[player].Rotation} Units", (p, option) =>
+        RotateMenu.AddMenuOption($"Value: {RotationValue} Units", (p, option) =>
         {
             float[] rotateValues = _.Config.Settings.GridValues;
             RotateValuesMenuOptions(player, RotateMenu, rotateValues);
@@ -107,7 +119,7 @@ public static class MenuChat
         {
             RotateMenu.AddMenuOption(rotateOption, (p, option) =>
             {
-                _.Command_RotateBlock(p, rotateOption);
+                _.Command_RotateBlock(p, false, rotateOption);
             });
         }
 
@@ -122,9 +134,11 @@ public static class MenuChat
         {
             RotateValuesMenu.AddMenuOption(rotateValueOption.ToString() + " Units", (p, option) =>
             {
-                _.playerData[p].Rotation = rotateValueOption;
+                _.playerData[p].RotationValue = rotateValueOption;
 
                 _.PrintToChat(player, $"Selected Rotation Value: {ChatColors.White}{rotateValueOption} Units");
+
+                MenuManager.OpenChatMenu(player, RotateMenu);
             });
         }
 
@@ -139,7 +153,7 @@ public static class MenuChat
         {
             SizeMenu.AddMenuOption(sizeValue, (p, option) =>
             {
-                _.playerData[player].Size = sizeValue;
+                _.playerData[player].BlockSize = sizeValue;
 
                 _.PrintToChat(p, $"Selected Size: {ChatColors.White}{sizeValue}");
 
@@ -150,19 +164,22 @@ public static class MenuChat
         MenuManager.OpenChatMenu(player, SizeMenu);
     }
 
-    private static void GridMenuOptions(CCSPlayerController player, ChatMenu openMainMenu, float[] gridValues)
+    private static void GridMenuOptions(CCSPlayerController player, float[] gridValues)
     {
         ChatMenu GridMenu = new("Select Grid");
+
+        GridMenu.AddMenuOption($"Grid: {(Grid ? "Enabled" : "Disabled")}", (p, option) =>
+        {
+            _.Command_Grid(player, false);
+        });
 
         foreach (float gridValue in gridValues)
         {
             GridMenu.AddMenuOption(gridValue.ToString() + " Units", (p, option) =>
             {
-                _.playerData[player].Grid = gridValue;
+                _.playerData[player].GridValue = gridValue;
 
                 _.PrintToChat(p, $"Selected Grid: {ChatColors.White}{gridValue} Units");
-
-                MenuManager.OpenChatMenu(player, openMainMenu);
             });
         }
 

@@ -26,20 +26,18 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
             if (!File.Exists(modelsPath))
             {
                 using (FileStream fs = File.Create(modelsPath))
-                {
                     fs.Close();
-                }
+
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+
+                string jsonContent = JsonSerializer.Serialize(Blocks, options);
+
+                File.WriteAllText(modelsPath, jsonContent);
             }
-
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            };
-
-            string jsonContent = JsonSerializer.Serialize(Blocks, options);
-
-            File.WriteAllText(modelsPath, jsonContent);
         }
 
         LoadBlocksModels();

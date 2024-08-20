@@ -5,11 +5,12 @@ using static BlockMaker.VectorUtils;
 public class PlayerData
 {
     public bool Builder;
-    public string Block = "Platform";
-    public string Size = "Medium";
-    public float Grid = 0.0f;
-    public float Rotation = 30.0f;
-    public bool Snapping;
+    public string BlockType = "Platform";
+    public string BlockSize = "Medium";
+    public bool Grid = false;
+    public float GridValue = 32f;
+    public float RotationValue = 30f;
+    public bool Snapping = false;
 }
 
 public class Builder

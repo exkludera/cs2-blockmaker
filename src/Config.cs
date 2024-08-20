@@ -7,23 +7,28 @@ public class Settings
     public bool BuildMode { get; set; } = false;
     public bool BuildModeConfig { get; set; } = false;
     public string BlockGrabColor { get; set; } = "255,255,255,128";
-    public float[] GridValues { get; set; } = { 0.0f, 8f, 16.0f, 32.0f, 64.0f, 128.0f, 256.0f };
+    public float[] GridValues { get; set; } = { 16f, 32f, 64f, 128f, 256f };
+    public float[] RotationValues { get; set; } = { 15f, 30f, 45f, 60f, 90f, 120f};
     public bool AutoSave { get; set; } = false;
     public int SaveTime { get; set; } = 300;
 }
 
-public class Commands
+public class AdminCommands
 {
-    public bool Enabled { get; set; } = true;
     public string Permission { get; set; } = "@css/root";
-    public string BuildMenu { get; set; } = "blockmenu,blocksmenu,buildmenu";
     public string BuildMode { get; set; } = "buildmode,togglebuild";
+    public string ManageBuilder { get; set; } = "builder,togglebuilder,allowbuilder";
+}
+
+public class BuildCommands
+{
+    public string BuildMenu { get; set; } = "buildmenu,blockmenu,blocksmenu";
     public string CreateBlock { get; set; } = "create,block,createblock";
-    public string DeleteBlock { get; set; } = "delete,deleteblock,removeblock";
+    public string DeleteBlock { get; set; } = "delete,deleteblock,remove,removeblock";
     public string RotateBlock { get; set; } = "rotate,rotateblock";
-    public string SaveBlocks { get; set; } = "save,saveblocks";
-    public string ToggleBuilder { get; set; } = "togglebuilder,allowbuilder,allowbuild";
-    public string ToggleSnapping { get; set; } = "snap,togglesnap";
+    public string SaveBlocks { get; set; } = "save,saveblocks,saveblock";
+    public string Snapping { get; set; } = "snap,togglesnap,snapping";
+    public string Grid { get; set; } = "grid,togglegrid";
 }
 
 public class Sounds
@@ -39,6 +44,7 @@ public class Sounds
 public class Config : BasePluginConfig
 {
     public Settings Settings { get; set; } = new Settings();
-    public Commands Commands { get; set; } = new Commands();
+    public AdminCommands AdminCommands { get; set; } = new AdminCommands();
+    public BuildCommands BuildCommands { get; set; } = new BuildCommands();
     public Sounds Sounds { get; set; } = new Sounds();
 }

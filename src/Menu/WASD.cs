@@ -6,18 +6,30 @@ namespace BlockMaker;
 
 public static class MenuWASD
 {
+    private static string? BlockType;
+    private static string? BlockSize;
+    private static bool Grid;
+    private static float GridValue;
+    private static float RotationValue;
+
     public static void OpenMenu(CCSPlayerController player)
     {
         IWasdMenu MainMenu = WasdManager.CreateMenu("Block Builder");
 
+        BlockType = _.playerData[player].BlockType;
+        BlockSize = _.playerData[player].BlockSize;
+        Grid = _.playerData[player].Grid;
+        GridValue = _.playerData[player].GridValue;
+        RotationValue = _.playerData[player].RotationValue;
+
         MainMenu.Add("Create Block", (player, menuOption) =>
         {
-            _.Command_CreateBlock(player);
+            _.Command_CreateBlock(player, false);
         });
 
         MainMenu.Add("Delete Block", (player, menuOption) =>
         {
-            _.Command_DeleteBlock(player);
+            _.Command_DeleteBlock(player, false);
         });
 
         MainMenu.Add("Rotate Block", (player, menuOption) =>
@@ -31,21 +43,21 @@ public static class MenuWASD
         {
             IWasdMenu BlockMenu = WasdManager.CreateMenu("Block Settings");
 
-            BlockMenu.Add($"Size: {_.playerData[player].Size}", (player, menuOption) =>
+            BlockMenu.Add($"Size: " + BlockSize, (player, menuOption) =>
             {
                 string[] sizeValues = { "Small", "Medium", "Large", "Pole" };
 
                 SizeMenuOptions(player, MainMenu, sizeValues);
             });
 
-            BlockMenu.Add($"Grid: {_.playerData[player].Grid} Units", (player, menuOption) =>
+            BlockMenu.Add($"Grid: {GridValue} Units", (player, menuOption) =>
             {
                 float[] gridValues = _.Config.Settings.GridValues;
 
-                GridMenuOptions(player, MainMenu, gridValues);
+                GridMenuOptions(player, gridValues);
             });
 
-            BlockMenu.Add($"Type: {_.playerData[player].Block}", (player, menuOption) =>
+            BlockMenu.Add($"Type: " + BlockType, (player, menuOption) =>
             {
                 IWasdMenu TypeMenu = WasdManager.CreateMenu("Select Type");
 
@@ -55,7 +67,7 @@ public static class MenuWASD
 
                     TypeMenu.Add(blockName, (player, menuOption) =>
                     {
-                        _.playerData[player].Block = blockName;
+                        _.playerData[player].BlockType = blockName;
 
                         _.PrintToChat(player, $"Selected Block: {ChatColors.White}{blockName}");
 
@@ -74,14 +86,14 @@ public static class MenuWASD
 
             SettingsMenu.Add("Toggle BuildMode", (player, menuOption) =>
             {
-                _.Command_ToggleBuildMode(player);
+                _.Command_BuildMode(player, false);
 
                 WasdManager.OpenMainMenu(player, MainMenu);
             });
 
             SettingsMenu.Add("Save Blocks", (player, menuOption) =>
             {
-                _.Command_SaveBlocks(player);
+                _.Command_SaveBlocks(player, false);
 
                 WasdManager.OpenMainMenu(player, MainMenu);
             });
@@ -96,9 +108,9 @@ public static class MenuWASD
     {
         IWasdMenu RotateMenu = WasdManager.CreateMenu("Rotate Block");
 
-        RotateMenu.Add($"Value: {_.playerData[player].Rotation} Units", (p, option) =>
+        RotateMenu.Add($"Value: {RotationValue} Units", (p, option) =>
         {
-            float[] rotateValues = { 10.0f, 30.0f, 45.0f, 60.0f, 90.0f, 120.0f };
+            float[] rotateValues = _.Config.Settings.RotationValues;
             RotateValuesMenuOptions(player, RotateMenu, rotateValues);
         });
 
@@ -106,7 +118,7 @@ public static class MenuWASD
         {
             RotateMenu.Add(rotateOption, (p, option) =>
             {
-                _.Command_RotateBlock(p, rotateOption);
+                _.Command_RotateBlock(p, false, rotateOption);
             });
         }
 
@@ -121,7 +133,7 @@ public static class MenuWASD
         {
             RotateValuesMenu.Add(rotateValueOption.ToString() + " Units", (p, option) =>
             {
-                _.playerData[p].Rotation = rotateValueOption;
+                _.playerData[p].RotationValue = rotateValueOption;
 
                 _.PrintToChat(player, $"Selected Rotation Value: {ChatColors.White}{rotateValueOption} Units");
             });
@@ -138,7 +150,7 @@ public static class MenuWASD
         {
             SizeMenu.Add(sizeValue, (p, option) =>
             {
-                _.playerData[player].Size = sizeValue;
+                _.playerData[player].BlockSize = sizeValue;
 
                 _.PrintToChat(p, $"Selected Size: {ChatColors.White}{sizeValue}");
 
@@ -149,19 +161,22 @@ public static class MenuWASD
         WasdManager.OpenMainMenu(player, SizeMenu);
     }
 
-    private static void GridMenuOptions(CCSPlayerController player, IWasdMenu openMainMenu, float[] gridValues)
+    private static void GridMenuOptions(CCSPlayerController player, float[] gridValues)
     {
         IWasdMenu GridMenu = WasdManager.CreateMenu("Select Grid");
+
+        GridMenu.Add($"Grid: {(Grid ? "Enabled" : "Disabled")}", (p, option) =>
+        {
+            _.Command_Grid(player, false);
+        });
 
         foreach (float gridValue in gridValues)
         {
             GridMenu.Add(gridValue.ToString() + " Units", (p, option) =>
             {
-                _.playerData[player].Grid = gridValue;
+                _.playerData[player].GridValue = gridValue;
 
                 _.PrintToChat(p, $"Selected Grid: {ChatColors.White}{gridValue} Units");
-
-                WasdManager.OpenMainMenu(player, openMainMenu);
             });
         }
 

@@ -3,6 +3,7 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Modules.Memory;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Configuration.UserSecrets;
 
 namespace BlockMaker;
 
@@ -114,7 +115,7 @@ public static class VectorUtils
         return origin + (direction * units);
     }
 
-    public static (Vector position, QAngle rotation) GetEndXYZ(CCSPlayerController player, CBaseProp block, double distance = 250, float grid = 0f, bool snapping = false)
+    public static (Vector position, QAngle rotation) GetEndXYZ(CCSPlayerController player, CBaseProp block, double distance = 250, bool grid = false, float gridValue = 0f, bool snapping = false)
     {
         Vector playerPos = new Vector(player.PlayerPawn.Value!.AbsOrigin!.X, player.PlayerPawn.Value.AbsOrigin.Y, player.PlayerPawn.Value.AbsOrigin.Z + player.PlayerPawn.Value!.CameraServices!.OldPlayerViewOffsetZ); 
 
@@ -129,11 +130,11 @@ public static class VectorUtils
         double z = playerPos.Z + distance * Math.Sin(radianA);
 
         //snapping grid
-        if (grid != 0f)
+        if (grid && gridValue != 0)
         {
-            x = (float)Math.Round(x / grid) * grid;
-            y = (float)Math.Round(y / grid) * grid;
-            z = (float)Math.Round(z / grid) * grid;
+            x = (float)Math.Round(x / gridValue) * gridValue;
+            y = (float)Math.Round(y / gridValue) * gridValue;
+            z = (float)Math.Round(z / gridValue) * gridValue;
         }
 
         //End Result
@@ -154,25 +155,30 @@ public static class VectorUtils
         return (endPos, endRotation);
     }
 
-    public static Vector SnapToClosestBlock(Vector currentPos, CBaseProp block)
+    public static Vector SnapToClosestBlock(Vector currentPos, CBaseProp closestBlock)
     {
         Vector closestBlockPos = currentPos;
         float closestDistance = float.MaxValue;
 
-        Vector blockSizeMax = GetBlockSizeMax(block) * 2;
-        Vector blockOrigin = block.AbsOrigin!;
+        Vector blockSizeMax = GetBlockSizeMax(closestBlock);
+        Vector blockOrigin = closestBlock.AbsOrigin!;
+        QAngle blockRotation = closestBlock.AbsRotation!;
+
+        double yaw = blockRotation.Y * Math.PI / 180.0;
+        double pitch = blockRotation.X * Math.PI / 180.0;
+        double roll = blockRotation.Z * Math.PI / 180.0;
 
         Vector[] faceOffsets = new Vector[]
         {
-        new Vector(-blockSizeMax.X, 0, 0), // -X face
-        new Vector(blockSizeMax.X, 0, 0),  // +X face
-        new Vector(0, -blockSizeMax.Y, 0), // -Y face
-        new Vector(0, blockSizeMax.Y, 0),  // +Y face
-        new Vector(0, 0, -blockSizeMax.Z), // -Z face
-        new Vector(0, 0, blockSizeMax.Z)   // +Z face
+            new Vector(-blockSizeMax.X, 0, 0), // -X face
+            new Vector(blockSizeMax.X, 0, 0),  // +X face
+            new Vector(0, -blockSizeMax.Y, 0), // -Y face
+            new Vector(0, blockSizeMax.Y, 0),  // +Y face
+            new Vector(0, 0, -blockSizeMax.Z), // -Z face
+            new Vector(0, 0, blockSizeMax.Z)   // +Z face
         };
 
-        for (int i = 0; i < 6; ++i)
+        for (int i = 0; i < faceOffsets.Length; ++i)
         {
             Vector testPos = blockOrigin + faceOffsets[i];
 
@@ -181,15 +187,50 @@ public static class VectorUtils
             {
                 closestDistance = distance;
                 closestBlockPos = testPos;
+
+                if (blockRotation.Z != 0)
+                {
+                    if (i == 4)
+                        closestBlockPos.Z = testPos.Z + blockSizeMax.X;
+
+                    if (i == 5)
+                        closestBlockPos.Z = testPos.Z - blockSizeMax.X;
+                }
             }
         }
 
         return closestBlockPos;
     }
 
+    private static Vector RotateVector(Vector v, double yaw, double pitch, double roll)
+    {
+        // Rotate around the Z axis (roll)
+        Vector temp = new Vector(
+            v.X * (float)Math.Cos(roll) * v.Y * (float)Math.Sin(roll),
+            v.X * (float)Math.Sin(roll) * v.Y * (float)Math.Cos(roll),
+            v.Z
+        );
+
+        // Rotate around the X axis (pitch)
+        Vector temp2 = new Vector(
+            temp.X,
+            temp.Y * (float)Math.Cos(pitch) * temp.Z * (float)Math.Sin(pitch),
+            temp.Y * (float)Math.Sin(pitch) * temp.Z * (float)Math.Cos(pitch)
+        );
+
+        // Rotate around the Y axis (yaw)
+        Vector result = new Vector(
+            temp2.X * ((float)Math.Cos(yaw) * temp2.Z * (float)Math.Sin(yaw)) * (float)roll,
+            temp2.Y,
+            -temp2.X * (float)Math.Sin(yaw) * temp2.Z * (float)Math.Cos(yaw)
+        );
+
+        return result;
+    }
+
     private static Vector GetBlockSizeMax(CBaseProp block)
     {
-        return new Vector(block.Collision.Maxs.X, block.Collision.Maxs.Y, block.Collision.Maxs.Z);
+        return new Vector(block.Collision.Maxs.X, block.Collision.Maxs.Y, block.Collision.Maxs.Z) * 2;
     }
 
     public class VectorDTO

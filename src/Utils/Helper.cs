@@ -29,7 +29,7 @@ public partial class Plugin
 
     public bool HasPermission(CCSPlayerController player)
     {
-        return string.IsNullOrEmpty(Config.Commands.Permission) || AdminManager.PlayerHasPermissions(player, Config.Commands.Permission);
+        return string.IsNullOrEmpty(Config.AdminCommands.Permission) || AdminManager.PlayerHasPermissions(player, Config.AdminCommands.Permission);
     }
 
     public void PrintToChat(CCSPlayerController player, string message)
@@ -88,7 +88,7 @@ public partial class Plugin
 
     public string GetModelFromSelectedBlock(CCSPlayerController player, string size)
     {
-        if (BlockModels.TryGetValue(playerData[player].Block, out var block))
+        if (BlockModels.TryGetValue(playerData[player].BlockType, out var block))
         {
             switch (size.ToLower())
             {
@@ -115,11 +115,6 @@ public partial class Plugin
     public string GetMapName()
     {
         return Server.MapName.ToString();
-    }
-
-    private string noSpawnBlocksMessage()
-    {
-        return $"Failed to spawn Blocks. File for {GetMapName()} is empty or invalid";
     }
 
     private Color ParseColor(string colorValue)

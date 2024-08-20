@@ -7,7 +7,7 @@ namespace BlockMaker;
 public partial class Plugin : BasePlugin, IPluginConfig<Config>
 {
     public override string ModuleName => "Block Maker";
-    public override string ModuleVersion => "0.0.3";
+    public override string ModuleVersion => "0.0.4";
     public override string ModuleAuthor => "exkludera";
 
     public static Plugin _ { get; set; } = new();
