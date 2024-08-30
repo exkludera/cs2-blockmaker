@@ -50,7 +50,9 @@ public partial class Plugin
 
             File.WriteAllText(savedBlocksPath, jsonString);
 
-            PlaySoundAll(Config.Sounds.Save);
+            if (Config.Sounds.Building.Enabled)
+                PlaySoundAll(Config.Sounds.Building.Save);
+
             PrintToChatAll($"Saved {ChatColors.White}{GetPlacedBlocksCount()} {ChatColors.Grey}Block{(GetPlacedBlocksCount() == 1 ? "" : "s")} on {ChatColors.White}{GetMapName()}");
             Logger.LogInformation($"Saved {GetPlacedBlocksCount()} Block{(GetPlacedBlocksCount() == 1 ? "" : "s")} on {GetMapName()}");
         }

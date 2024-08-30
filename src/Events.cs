@@ -1,5 +1,7 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Memory;
+using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using static CounterStrikeSharp.API.Core.Listeners;
@@ -8,13 +10,10 @@ namespace BlockMaker;
 
 public partial class Plugin : BasePlugin, IPluginConfig<Config>
 {
-    public delegate HookResult EntityOutputHandler(CEntityIOOutput output, string name, CEntityInstance activator, CEntityInstance caller, CVariant value, float delay);
-
     public void RegisterEvents()
     {
         RegisterListener<OnTick>(OnTick);
         RegisterListener<OnMapStart>(OnMapStart);
-        RegisterListener<OnMapEnd>(OnMapEnd);
         RegisterListener<OnServerPrecacheResources>(OnServerPrecacheResources);
 
         RegisterEventHandler<EventPlayerConnectFull>(EventPlayerConnectFull);
@@ -25,13 +24,15 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         HookEntityOutput("*", "OnStartTouch", OnStartTouch, HookMode.Pre);
         HookEntityOutput("*", "OnTouching", OnTouching, HookMode.Pre);
         HookEntityOutput("*", "OnEndTouch", OnEndTouch, HookMode.Pre);
+
+        VirtualFunctions.CBaseTrigger_StartTouchFunc.Hook(OnStartTouchVF, HookMode.Pre);
+        VirtualFunctions.CBaseTrigger_EndTouchFunc.Hook(OnEndTouchVF, HookMode.Pre);
     }
 
     public void UnregisterEvents()
     {
         RemoveListener<OnTick>(OnTick);
         RemoveListener<OnMapStart>(OnMapStart);
-        RemoveListener<OnMapEnd>(OnMapEnd);
         RemoveListener<OnServerPrecacheResources>(OnServerPrecacheResources);
 
         DeregisterEventHandler<EventPlayerConnectFull>(EventPlayerConnectFull);
@@ -42,6 +43,9 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         UnhookEntityOutput("*", "OnStartTouch", OnStartTouch, HookMode.Pre);
         UnhookEntityOutput("*", "OnTouching", OnTouching, HookMode.Pre);
         UnhookEntityOutput("*", "OnEndTouch", OnEndTouch, HookMode.Pre);
+
+        VirtualFunctions.CBaseTrigger_StartTouchFunc.Unhook(OnStartTouchVF, HookMode.Pre);
+        VirtualFunctions.CBaseTrigger_EndTouchFunc.Unhook(OnEndTouchVF, HookMode.Pre);
     }
 
     private HookResult OnStartTouch(CEntityIOOutput output, string name, CEntityInstance activator, CEntityInstance caller, CVariant value, float delay)
@@ -55,6 +59,16 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
     }
 
     private HookResult OnEndTouch(CEntityIOOutput output, string name, CEntityInstance activator, CEntityInstance caller, CVariant value, float delay)
+    {
+        return HookResult.Continue;
+    }
+
+    HookResult OnStartTouchVF(DynamicHook hook)
+    {
+        return HookResult.Continue;
+    }
+
+    HookResult OnEndTouchVF(DynamicHook hook)
     {
         return HookResult.Continue;
     }
@@ -75,21 +89,25 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
             if (!string.IsNullOrEmpty(block.Pole))
                 manifest.AddResource(block.Pole);
         }
+
+        manifest.AddResource(Config.Settings.Blocks.Values.CamouflageT);
+        manifest.AddResource(Config.Settings.Blocks.Values.CamouflageCT);
+        manifest.AddResource("particles/inferno_fx/molotov_fire01.vpcf");
     }
 
     public void OnMapStart(string mapname)
     {
         savedBlocksPath = Path.Combine(blocksFolder, $"{GetMapName()}.json");
 
-        if (Config.Settings.AutoSave)
+        if (Config.Settings.Building.AutoSave)
         {
-            AddTimer(Config.Settings.SaveTime, () => {
+            AddTimer(Config.Settings.Building.SaveTime, () => {
                 PrintToChatAll("Auto-Saving Blocks");
                 SaveBlocks();
             }, TimerFlags.STOP_ON_MAPCHANGE);
         }
 
-        if (Config.Settings.BuildModeConfig)
+        if (Config.Settings.Building.BuildModeConfig)
         {
             string[] commands =
                 {
@@ -101,10 +119,6 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
                 Server.ExecuteCommand(command);
         }
     }
-    public void OnMapEnd()
-    {
-        playerData.Clear();
-    }
 
     HookResult EventPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
     {
@@ -115,11 +129,11 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
 
         if (buildMode)
         {
-            playerData[player] = new();
-            PlayerHolds[player] = new();
+            playerData[player.Slot] = new PlayerData();
+            PlayerHolds[player] = new BuildingData();
 
             if (HasPermission(player))
-                playerData[player].Builder = true;
+                playerData[player.Slot].Builder = true;
         }
 
         return HookResult.Continue;
@@ -127,7 +141,10 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
 
     HookResult EventRoundStart(EventRoundStart @event, GameEventInfo info)
     {
-        Reset();
+        Timers.Clear();
+        UsedBlocks.Clear();
+        PlayerHolds.Clear();
+        blocksCooldown.Clear();
 
         SpawnBlocks();
 
@@ -136,7 +153,7 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
 
     HookResult EventRoundEnd(EventRoundEnd @event, GameEventInfo info)
     {
-        if (buildMode && Config.Settings.AutoSave)
+        if (buildMode && Config.Settings.Building.AutoSave)
             SaveBlocks();
 
         return HookResult.Continue;

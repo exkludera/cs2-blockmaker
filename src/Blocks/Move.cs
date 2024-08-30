@@ -9,38 +9,45 @@ namespace BlockMaker;
 
 public partial class Plugin
 {
-    public Dictionary<CCSPlayerController, Builder> PlayerHolds = new Dictionary<CCSPlayerController, Builder>();
+    public Dictionary<CCSPlayerController, BuildingData> PlayerHolds = new Dictionary<CCSPlayerController, BuildingData>();
 
     public void OnTick()
     {
         if (!buildMode)
             return;
 
-        foreach (var player in Utilities.GetPlayers().Where(p => p != null && p.PawnIsAlive && !p.IsBot))
+        foreach (var player in Utilities.GetPlayers().Where(p => p.IsLegal() && p.IsAlive() && playerData.ContainsKey(p.Slot) && playerData[p.Slot].Builder))
         {
-            if (player.Buttons.HasFlag(PlayerButtons.Reload))
+            if (!PlayerHolds.ContainsKey(player))
             {
-                if (PlayerHolds.ContainsKey(player))
-                    RotateRepeat(player, PlayerHolds[player].block!);
-
-                else GrabBlock(player);
-            }
-            else if (player.Buttons.HasFlag(PlayerButtons.Use))
-            {
-                if (PlayerHolds.ContainsKey(player))
-                    DistanceRepeat(player, PlayerHolds[player].block!);
-
-                else GrabBlock(player);
+                if (player.Buttons.HasFlag(PlayerButtons.Reload) || player.Buttons.HasFlag(PlayerButtons.Use))
+                    GrabBlock(player);
             }
             else
             {
-                if (PlayerHolds.ContainsKey(player))
+                var blockData = PlayerHolds[player];
+
+                if (blockData.block == null || !blockData.block.IsValid)
                 {
-                    PlayerHolds[player].block.Render = Color.White;
-                    Utilities.SetStateChanged(PlayerHolds[player].block, "CBaseModelEntity", "m_clrRender");
+                    PlayerHolds.Remove(player);
+                    continue;
+                }
+
+                if (player.Buttons.HasFlag(PlayerButtons.Reload))
+                    RotateRepeat(player, blockData.block);
+
+                else if (player.Buttons.HasFlag(PlayerButtons.Use))
+                    DistanceRepeat(player, blockData.block);
+
+                else
+                {
+                    blockData.block.Render = Color.White;
+                    Utilities.SetStateChanged(blockData.block, "CBaseModelEntity", "m_clrRender");
 
                     PlayerHolds.Remove(player);
-                    PlaySound(player, Config.Sounds.Place);
+
+                    if (Config.Sounds.Building.Enabled)
+                        player.PlaySound(Config.Sounds.Building.Place);
                 }
             }
         }
@@ -49,6 +56,7 @@ public partial class Plugin
     public void GrabBlock(CCSPlayerController player)
     {
         var block = player.GetBlockAimTarget();
+
         if (block != null)
         {
             if (!UsedBlocks.ContainsKey(block))
@@ -74,16 +82,16 @@ public partial class Plugin
 
             int distance = (int)CalculateDistance(block.AbsOrigin!, player.PlayerPawn.Value!.AbsOrigin!);
 
-            block.Render = ParseColor(Config.Settings.BlockGrabColor);
+            block.Render = ParseColor(Config.Settings.Building.BlockGrabColor);
             Utilities.SetStateChanged(block, "CBaseModelEntity", "m_clrRender");
 
-            PlayerHolds.Add(player, new Builder() { block = block, distance = distance });
+            PlayerHolds.Add(player, new BuildingData() { block = block, distance = distance });
         }
     }
 
     public void DistanceRepeat(CCSPlayerController player, CBaseProp block)
     {
-        var (position, rotation) = GetEndXYZ(player, block, PlayerHolds[player].distance, playerData[player].Grid, playerData[player].GridValue, playerData[player].Snapping);
+        var (position, rotation) = GetEndXYZ(player, block, PlayerHolds[player].distance, playerData[player.Slot].Grid, playerData[player.Slot].GridValue, playerData[player.Slot].Snapping);
         
         block.Teleport(position, rotation);
 
@@ -101,7 +109,7 @@ public partial class Plugin
 
     public void RotateRepeat(CCSPlayerController player, CBaseProp block)
     {
-        var (position, rotation) = GetEndXYZ(player, block, PlayerHolds[player].distance, playerData[player].Grid, playerData[player].GridValue, playerData[player].Snapping);
+        var (position, rotation) = GetEndXYZ(player, block, PlayerHolds[player].distance, playerData[player.Slot].Grid, playerData[player.Slot].GridValue, playerData[player.Slot].Snapping);
 
         block.Teleport(position, rotation);
 

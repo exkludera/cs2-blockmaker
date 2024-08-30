@@ -3,7 +3,6 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Modules.Memory;
 using System.Runtime.InteropServices;
-using Microsoft.Extensions.Configuration.UserSecrets;
 
 namespace BlockMaker;
 

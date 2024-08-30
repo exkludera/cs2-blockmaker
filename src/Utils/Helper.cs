@@ -10,15 +10,9 @@ namespace BlockMaker;
 
 public partial class Plugin
 {
-    public void Reset()
-    {
-        UsedBlocks.Clear();
-        PlayerHolds.Clear();
-    }
-
     public bool BuildMode(CCSPlayerController player)
     {
-        if (buildMode && playerData[player].Builder)
+        if (buildMode && playerData[player.Slot].Builder)
             return true;
         else
         {
@@ -29,33 +23,23 @@ public partial class Plugin
 
     public bool HasPermission(CCSPlayerController player)
     {
-        return string.IsNullOrEmpty(Config.AdminCommands.Permission) || AdminManager.PlayerHasPermissions(player, Config.AdminCommands.Permission);
+        return string.IsNullOrEmpty(Config.Commands.Admin.Permission) || AdminManager.PlayerHasPermissions(player, Config.Commands.Admin.Permission);
     }
 
     public void PrintToChat(CCSPlayerController player, string message)
     {
-        player.PrintToChat($"{Config.Settings.Prefix} {ChatColors.Grey}{message}");
+        player.PrintToChat($"{Config.Settings.Main.Prefix} {ChatColors.Grey}{message}");
     }
 
     public void PrintToChatAll(string message)
     {
-        Server.PrintToChatAll($"{Config.Settings.Prefix} {ChatColors.Grey}{message}");
+        Server.PrintToChatAll($"{Config.Settings.Main.Prefix} {ChatColors.Grey}{message}");
     }
 
-    public void PlaySound(CCSPlayerController player, string sound)
-    {
-        if (!Config.Sounds.Enabled || !player.IsValid || player.IsBot)
-            return;
-
-        player.ExecuteClientCommand($"play {sound}");
-    }
     public void PlaySoundAll(string sound)
     {
-        if (!Config.Sounds.Enabled)
-            return;
-
         foreach (var player in Utilities.GetPlayers().Where(p => !p.IsBot))
-            player.ExecuteClientCommand($"play {sound}");
+            player.PlaySound(sound);
     }
 
     public bool IsValidJson(string filePath)
@@ -88,7 +72,7 @@ public partial class Plugin
 
     public string GetModelFromSelectedBlock(CCSPlayerController player, string size)
     {
-        if (BlockModels.TryGetValue(playerData[player].BlockType, out var block))
+        if (BlockModels.TryGetValue(playerData[player.Slot].BlockType, out var block))
         {
             switch (size.ToLower())
             {

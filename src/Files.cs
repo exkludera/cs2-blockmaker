@@ -14,11 +14,11 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
 
     public void Files()
     {
-        // saved map blocks
+        // saved map blocks folder
         blocksFolder = Path.Combine(ModuleDirectory, "blocks");
         Directory.CreateDirectory(blocksFolder);
 
-        // block models
+        // block models file
         modelsPath = Path.Combine(ModuleDirectory, "models.json");
 
         if (!string.IsNullOrEmpty(modelsPath))

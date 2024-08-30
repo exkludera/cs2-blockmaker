@@ -12,9 +12,9 @@ public static class Menu
 
     public static void Load(bool hotReload)
     {
-        _.RegisterListener<OnTick>(OnTick);
+        Instance.RegisterListener<OnTick>(OnTick);
 
-        _.RegisterEventHandler<EventPlayerActivate>((@event, info) =>
+        Instance.RegisterEventHandler<EventPlayerActivate>((@event, info) =>
         {
             CCSPlayerController? player = @event.Userid;
 
@@ -30,7 +30,7 @@ public static class Menu
             return HookResult.Continue;
         });
 
-        _.RegisterEventHandler<EventPlayerDisconnect>((@event, info) =>
+        Instance.RegisterEventHandler<EventPlayerDisconnect>((@event, info) =>
         {
             CCSPlayerController? player = @event.Userid;
 
@@ -60,7 +60,7 @@ public static class Menu
 
     public static void Unload()
     {
-        _.RemoveListener<OnTick>(OnTick);
+        Instance.RemoveListener<OnTick>(OnTick);
     }
 
     public static void OnTick()
@@ -94,12 +94,12 @@ public static class Menu
     }
 
     [CommandHelper(whoCanExecute: CommandUsage.CLIENT_ONLY)]
-    public static void Command_OpenMenus(CCSPlayerController player, CommandInfo info)
+    public static void Command_OpenMenus(CCSPlayerController player)
     {
-        if (!_.BuildMode(player))
+        if (!Instance.BuildMode(player))
             return;
 
-        switch (_.Config.Settings.MenuType.ToLower())
+        switch (Instance.Config.Settings.Main.MenuType.ToLower())
         {
             case "chat":
             case "text":

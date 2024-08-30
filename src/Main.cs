@@ -7,16 +7,16 @@ namespace BlockMaker;
 public partial class Plugin : BasePlugin, IPluginConfig<Config>
 {
     public override string ModuleName => "Block Maker";
-    public override string ModuleVersion => "0.0.4";
+    public override string ModuleVersion => "0.0.5";
     public override string ModuleAuthor => "exkludera";
 
-    public static Plugin _ { get; set; } = new();
-    public Dictionary<CCSPlayerController, PlayerData> playerData = new Dictionary<CCSPlayerController, PlayerData>();
+    public static Plugin Instance { get; set; } = new();
+    public Dictionary<int, PlayerData> playerData = new Dictionary<int, PlayerData>();
     public bool buildMode = false;
 
     public override void Load(bool hotReload)
     {
-        _ = this;
+        Instance = this;
 
         Files();
 
@@ -30,12 +30,12 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         {
             savedBlocksPath = Path.Combine(blocksFolder, $"{GetMapName()}.json");
 
-            foreach (var player in Utilities.GetPlayers().Where(p => !p.IsBot && !playerData.ContainsKey(p)))
+            foreach (var player in Utilities.GetPlayers().Where(p => !p.IsBot && !playerData.ContainsKey(p.Slot)))
             {
-                playerData[player] = new();
+                playerData[player.Slot] = new();
 
                 if (HasPermission(player))
-                    playerData[player].Builder = true;
+                    playerData[player.Slot].Builder = true;
             }
 
             foreach (var block in Utilities.GetAllEntities().Where(b => b.DesignerName == "prop_physics_override"))
@@ -56,8 +56,8 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
     public void OnConfigParsed(Config config)
     {
         Config = config;
-        Config.Settings.Prefix = StringExtensions.ReplaceColorTags(config.Settings.Prefix);
+        Config.Settings.Main.Prefix = StringExtensions.ReplaceColorTags(config.Settings.Main.Prefix);
 
-        buildMode = config.Settings.BuildMode;
+        buildMode = config.Settings.Building.BuildMode;
     }
 }

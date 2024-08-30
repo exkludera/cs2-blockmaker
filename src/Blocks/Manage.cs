@@ -16,7 +16,9 @@ public partial class Plugin
                 block.Entity.Remove();
                 UsedBlocks.Remove(block.Entity);
 
-                PlaySound(player, Config.Sounds.Delete);
+                if (Config.Sounds.Building.Enabled)
+                    player.PlaySound(Config.Sounds.Building.Delete);
+
                 PrintToChat(player, $"Delete Block: Deleted type: {ChatColors.White}{block.Name}{ChatColors.Grey}, size: {ChatColors.White}{block.Size}");
             }
         }
@@ -27,7 +29,7 @@ public partial class Plugin
     {
         var block = player.GetBlockAimTarget();
 
-        float selectedRotation = playerData[player].RotationValue;
+        float selectedRotation = playerData[player.Slot].RotationValue;
 
         if (block != null)
         {
@@ -63,8 +65,10 @@ public partial class Plugin
                     return;
                 }
 
-                PrintToChat(player, $"Rotate Block: {ChatColors.White}{rotation} {(string.Equals(rotation, "reset", StringComparison.OrdinalIgnoreCase) ?  $"" : $"by {selectedRotation} Units")}");
-                PlaySound(player, Config.Sounds.Rotate);
+                if (Config.Sounds.Building.Enabled)
+                    player.PlaySound(Config.Sounds.Building.Rotate);
+
+                PrintToChat(player, $"Rotate Block: {ChatColors.White}{rotation} {(string.Equals(rotation, "reset", StringComparison.OrdinalIgnoreCase) ? $"" : $"by {selectedRotation} Units")}");
             }
         }
         else PrintToChat(player, $"Rotate Block: Could not find a block");

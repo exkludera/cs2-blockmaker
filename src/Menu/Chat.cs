@@ -7,138 +7,95 @@ namespace BlockMaker;
 
 public static class MenuChat
 {
-    private static string? BlockType;
-    private static string? BlockSize;
-    private static bool Grid;
-    private static float GridValue;
-    private static float RotationValue;
-
     public static void OpenMenu(CCSPlayerController player)
     {
         ChatMenu MainMenu = new("Block Builder");
 
-        BlockType = _.playerData[player].BlockType;
-        BlockSize = _.playerData[player].BlockSize;
-        Grid = _.playerData[player].Grid;
-        GridValue = _.playerData[player].GridValue;
-        RotationValue = _.playerData[player].RotationValue;
-
         MainMenu.AddMenuOption("Create Block", (player, menuOption) =>
         {
-            _.Command_CreateBlock(player, false);
+            Instance.Command_CreateBlock(player);
         });
 
         MainMenu.AddMenuOption("Delete Block", (player, menuOption) =>
         {
-            _.Command_DeleteBlock(player, false);
+            Instance.Command_DeleteBlock(player);
         });
 
         MainMenu.AddMenuOption("Rotate Block", (player, menuOption) =>
         {
+            float[] rotateValues = Instance.Config.Settings.Building.RotationValues;
             string[] rotateOptions = { "Reset", "X-", "X+", "Y-", "Y+", "Z-", "Z+" };
 
-            RotateMenuOptions(player, rotateOptions);
+            RotateMenuOptions(player, rotateOptions, rotateValues);
         });
 
         MainMenu.AddMenuOption($"Block Settings", (player, menuOption) =>
         {
             ChatMenu BlockMenu = new("Block Settings");
 
-            BlockMenu.AddMenuOption($"Size: " + BlockSize, (player, menuOption) =>
+            BlockMenu.AddMenuOption($"Size: " + Instance.playerData[player.Slot].BlockSize, (player, menuOption) =>
             {
                 string[] sizeValues = { "Small", "Medium", "Large", "Pole" };
 
                 SizeMenuOptions(player, MainMenu, sizeValues);
             });
 
-            BlockMenu.AddMenuOption($"Grid: {GridValue} Units", (player, menuOption) =>
+            BlockMenu.AddMenuOption($"Grid: {Instance.playerData[player.Slot].GridValue} Units", (player, menuOption) =>
             {
-                float[] gridValues = _.Config.Settings.GridValues;
+                float[] gridValues = Instance.Config.Settings.Building.GridValues;
 
                 GridMenuOptions(player, gridValues);
             });
 
-            BlockMenu.AddMenuOption($"Type: " + BlockType, (player, menuOption) =>
+            BlockMenu.AddMenuOption($"Type: {Instance.playerData[player.Slot].BlockType}", (player, menuOption) =>
             {
-                ChatMenu TypeMenu = new("Select Type");
-
-                foreach (var block in _.BlockModels)
-                {
-                    string blockName = block.Key;
-
-                    TypeMenu.AddMenuOption(blockName, (player, menuOption) =>
-                    {
-                        _.playerData[player].BlockType = blockName;
-
-                        _.PrintToChat(player, $"Selected Block: {ChatColors.White}{blockName}");
-
-                        MenuManager.OpenChatMenu(player, MainMenu);
-                    });
-                }
-                MenuManager.OpenChatMenu(player, TypeMenu);
+                TypeMenuOptions(player);
             });
 
             MenuManager.OpenChatMenu(player, BlockMenu);
         });
 
-        MainMenu.AddMenuOption("Global Settings", (player, menuOption) =>
+        MainMenu.AddMenuOption("Settings", (player, menuOption) =>
         {
-            ChatMenu SettingsMenu = new("Global Settings");
-
-            SettingsMenu.AddMenuOption("Toggle BuildMode", (player, menuOption) =>
-            {
-                _.Command_BuildMode(player, false);
-
-                MenuManager.OpenChatMenu(player, MainMenu);
-            });
-
-            SettingsMenu.AddMenuOption("Save Blocks", (player, menuOption) =>
-            {
-                _.Command_SaveBlocks(player, false);
-
-                MenuManager.OpenChatMenu(player, MainMenu);
-            });
-
-            MenuManager.OpenChatMenu(player, SettingsMenu);
+            SettingsOptions(player);
         });
 
         MenuManager.OpenChatMenu(player, MainMenu);
     }
 
-    private static void RotateMenuOptions(CCSPlayerController player, string[] rotateOptions)
+    private static void RotateMenuOptions(CCSPlayerController player, string[] rotateOptions, float[] rotateValues)
     {
-        ChatMenu RotateMenu = new("Rotate Block");
+        ChatMenu RotateMenu = new($"Rotate Block ({Instance.playerData[player.Slot].RotationValue} Units)");
 
-        RotateMenu.AddMenuOption($"Value: {RotationValue} Units", (p, option) =>
+        RotateMenu.AddMenuOption($"Select Units", (p, option) =>
         {
-            float[] rotateValues = _.Config.Settings.GridValues;
-            RotateValuesMenuOptions(player, RotateMenu, rotateValues);
+            RotateValuesMenuOptions(player, rotateOptions, rotateValues);
         });
 
         foreach (string rotateOption in rotateOptions)
         {
             RotateMenu.AddMenuOption(rotateOption, (p, option) =>
             {
-                _.Command_RotateBlock(p, false, rotateOption);
+                Instance.Command_RotateBlock(p, rotateOption);
             });
         }
 
         MenuManager.OpenChatMenu(player, RotateMenu);
     }
 
-    private static void RotateValuesMenuOptions(CCSPlayerController player, ChatMenu RotateMenu, float[] rotateValues)
+    private static void RotateValuesMenuOptions(CCSPlayerController player, string[] rotateOptions, float[] rotateValues)
     {
-        ChatMenu RotateValuesMenu = new("Rotate Values");
+        ChatMenu RotateValuesMenu = new($"Rotate Values");
 
         foreach (float rotateValueOption in rotateValues)
         {
             RotateValuesMenu.AddMenuOption(rotateValueOption.ToString() + " Units", (p, option) =>
             {
-                _.playerData[p].RotationValue = rotateValueOption;
+                Instance.playerData[p.Slot].RotationValue = rotateValueOption;
 
-                _.PrintToChat(player, $"Selected Rotation Value: {ChatColors.White}{rotateValueOption} Units");
+                Instance.PrintToChat(player, $"Selected Rotation Value: {ChatColors.White}{rotateValueOption} Units");
 
-                MenuManager.OpenChatMenu(player, RotateMenu);
+                RotateMenuOptions(player, rotateOptions, rotateValues);
             });
         }
 
@@ -147,17 +104,17 @@ public static class MenuChat
 
     private static void SizeMenuOptions(CCSPlayerController player, ChatMenu openMainMenu, string[] sizeValues)
     {
-        ChatMenu SizeMenu = new("Select Size");
+        ChatMenu SizeMenu = new($"Select Size ({Instance.playerData[player.Slot].BlockSize})");
 
         foreach (string sizeValue in sizeValues)
         {
             SizeMenu.AddMenuOption(sizeValue, (p, option) =>
             {
-                _.playerData[player].BlockSize = sizeValue;
+                Instance.playerData[player.Slot].BlockSize = sizeValue;
 
-                _.PrintToChat(p, $"Selected Size: {ChatColors.White}{sizeValue}");
+                Instance.PrintToChat(p, $"Selected Size: {ChatColors.White}{sizeValue}");
 
-                MenuManager.OpenChatMenu(player, openMainMenu);
+                SizeMenuOptions(player, openMainMenu, sizeValues);
             });
         }
 
@@ -166,23 +123,82 @@ public static class MenuChat
 
     private static void GridMenuOptions(CCSPlayerController player, float[] gridValues)
     {
-        ChatMenu GridMenu = new("Select Grid");
+        ChatMenu GridMenu = new($"Select Grid ({(Instance.playerData[player.Slot].Grid ? "ON" : "OFF")} - {Instance.playerData[player.Slot].GridValue})");
 
-        GridMenu.AddMenuOption($"Grid: {(Grid ? "Enabled" : "Disabled")}", (p, option) =>
+        GridMenu.AddMenuOption($"Toggle Grid", (p, option) =>
         {
-            _.Command_Grid(player, false);
+            Instance.Command_Grid(player);
+
+            GridMenuOptions(player, gridValues);
         });
 
         foreach (float gridValue in gridValues)
         {
             GridMenu.AddMenuOption(gridValue.ToString() + " Units", (p, option) =>
             {
-                _.playerData[player].GridValue = gridValue;
+                Instance.playerData[player.Slot].GridValue = gridValue;
 
-                _.PrintToChat(p, $"Selected Grid: {ChatColors.White}{gridValue} Units");
+                Instance.PrintToChat(p, $"Selected Grid: {ChatColors.White}{gridValue} Units");
+
+                GridMenuOptions(player, gridValues);
             });
         }
 
         MenuManager.OpenChatMenu(player, GridMenu);
+    }
+
+    private static void TypeMenuOptions(CCSPlayerController player)
+    {
+        ChatMenu TypeMenu = new($"Select Type ({Instance.playerData[player.Slot].BlockType})");
+
+        foreach (var block in Instance.BlockModels)
+        {
+            string blockName = block.Key;
+
+            TypeMenu.AddMenuOption(blockName, (player, menuOption) =>
+            {
+                Instance.playerData[player.Slot].BlockType = blockName;
+
+                Instance.PrintToChat(player, $"Selected Block: {ChatColors.White}{blockName}");
+
+                TypeMenuOptions(player);
+            });
+        }
+        MenuManager.OpenChatMenu(player, TypeMenu);
+    }
+
+    private static void SettingsOptions(CCSPlayerController player)
+    {
+        ChatMenu SettingsMenu = new("Settings");
+
+        SettingsMenu.AddMenuOption("Build Mode: " + (Instance.buildMode ? "ON" : "OFF"), (player, menuOption) =>
+        {
+            Instance.Command_BuildMode(player);
+
+            SettingsOptions(player);
+        });
+
+        SettingsMenu.AddMenuOption("Godmode: " + (Instance.playerData[player.Slot].Godmode ? "ON" : "OFF"), (player, menuOption) =>
+        {
+            Instance.Command_Godmode(player);
+
+            SettingsOptions(player);
+        });
+
+        SettingsMenu.AddMenuOption("Noclip: " + (Instance.playerData[player.Slot].Noclip ? "ON" : "OFF"), (player, menuOption) =>
+        {
+            Instance.Command_Noclip(player);
+
+            SettingsOptions(player);
+        });
+
+        SettingsMenu.AddMenuOption("Save Blocks", (player, menuOption) =>
+        {
+            Instance.Command_SaveBlocks(player);
+
+            SettingsOptions(player);
+        });
+
+        MenuManager.OpenChatMenu(player, SettingsMenu);
     }
 }

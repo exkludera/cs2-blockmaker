@@ -1,5 +1,6 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
@@ -20,7 +21,7 @@ public partial class Plugin
             return;
         }
 
-        string selectedBlock = playerData[player].BlockType;
+        string selectedBlock = playerData[player.Slot].BlockType;
 
         if (string.IsNullOrEmpty(selectedBlock))
         {
@@ -28,14 +29,16 @@ public partial class Plugin
             return;
         }
 
-        string blockmodel = GetModelFromSelectedBlock(player, playerData[player].BlockSize);
+        string blockmodel = GetModelFromSelectedBlock(player, playerData[player.Slot].BlockSize);
 
         try
         {
-            CreateBlockEntity(selectedBlock, blockmodel, playerData[player].BlockSize, RayTrace.Vector3toVector(hitPoint.Value), new QAngle());
+            CreateBlockEntity(selectedBlock, blockmodel, playerData[player.Slot].BlockSize, RayTrace.Vector3toVector(hitPoint.Value), new QAngle());
 
-            PrintToChat(player, $"Create Block: Created type: {ChatColors.White}{playerData[player].BlockType}{ChatColors.Grey}, size: {ChatColors.White}{playerData[player].BlockSize}");
-            PlaySound(player, Config.Sounds.Create);
+            if (Config.Sounds.Building.Enabled)
+                player.PlaySound(Config.Sounds.Building.Create);
+
+            PrintToChat(player, $"Create Block: Created type: {ChatColors.White}{playerData[player.Slot].BlockType}{ChatColors.Grey}, size: {ChatColors.White}{playerData[player.Slot].BlockSize}");
         }
         catch
         {
@@ -47,6 +50,7 @@ public partial class Plugin
     public void CreateBlockEntity(string blockType, string blockModel, string blockSize, Vector blockPosition, QAngle blockRotation)
     {
         var block = Utilities.CreateEntityByName<CPhysicsPropOverride>("prop_physics_override");
+
         if (block != null && block.IsValid)
         {
             block.DispatchSpawn();
@@ -55,7 +59,6 @@ public partial class Plugin
             block.Entity!.Name = blockType;
             block.EnableUseOutput = true;
             block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags = (uint)(block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags & ~(1 << 2));
-
             block.AcceptInput("DisableMotion", block, block);
             block.Teleport(new Vector(blockPosition.X, blockPosition.Y, blockPosition.Z), new QAngle(blockRotation.X, blockRotation.Y, blockRotation.Z));
 

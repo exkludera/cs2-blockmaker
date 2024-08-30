@@ -123,13 +123,13 @@ public class WasdMenuPlayer
         LinkedListNode<IWasdMenuOption>? option = MenuStart!;
         if (option.Value.Parent?.Title != "")
         {
-            builder.AppendLine($"{_.Localizer["WASD Menu Prefix"]}{option.Value.Parent?.Title}</u><font color='white'><br>");
+            builder.AppendLine($"{Instance.Localizer["WASD Menu Prefix"]}{option.Value.Parent?.Title}</u><font color='white'><br>");
         }
 
         while (i < VisibleOptions && option != null)
         {
             if (option == CurrentChoice)
-                builder.AppendLine($"{_.Localizer["WASD Menu Selection Left"]} {option.Value.OptionDisplay} {_.Localizer["WASD Menu Selection Right"]} <br>");
+                builder.AppendLine($"{Instance.Localizer["WASD Menu Selection Left"]} {option.Value.OptionDisplay} {Instance.Localizer["WASD Menu Selection Right"]} <br>");
             else
                 builder.AppendLine($"{option.Value.OptionDisplay} <br>");
             option = option.Next;
@@ -139,11 +139,11 @@ public class WasdMenuPlayer
         if (option != null)
         {
             builder.AppendLine(
-                $"{_.Localizer["WASD Menu Selection Options Below"]}");
+                $"{Instance.Localizer["WASD Menu Selection Options Below"]}");
         }
 
         builder.AppendLine("<br>" +
-                           $"{_.Localizer["WASD Menu Bottom Text"]}<br>");
+                           $"{Instance.Localizer["WASD Menu Bottom Text"]}<br>");
         builder.AppendLine("</div>");
         CenterHtml = builder.ToString();
     }
