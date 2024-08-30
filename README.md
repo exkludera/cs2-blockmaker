@@ -52,8 +52,7 @@
       "BuildMode": false,
       "BuildModeConfig": false,
       "BlockGrabColor": "255,255,255,128",
-      "GridValues": [ 16, 32, 64, 128, 256
-      ],
+      "GridValues": [ 16, 32, 64, 128, 256 ],
       "RotationValues": [ 15, 30, 45, 60, 90, 120 ],
       "AutoSave": false,
       "SaveTime": 300
