@@ -6,8 +6,6 @@ using Microsoft.Extensions.Logging;
 using System.Drawing;
 using System.Text.Json;
 
-namespace BlockMaker;
-
 public partial class Plugin
 {
     public bool BuildMode(CCSPlayerController player)
@@ -72,22 +70,25 @@ public partial class Plugin
 
     public string GetModelFromSelectedBlock(CCSPlayerController player, string size)
     {
-        if (BlockModels.TryGetValue(playerData[player.Slot].BlockType, out var block))
+        var blockType = playerData[player.Slot].BlockType;
+
+        foreach (var property in typeof(BlockModels).GetProperties())
         {
-            switch (size.ToLower())
+            var block = (BlockSizes)property.GetValue(BlockModels)!;
+
+            if (block.Title.Equals(blockType, StringComparison.OrdinalIgnoreCase))
             {
-                case "small":
-                    return block.Small;
-                case "medium":
-                    return block.Medium;
-                case "large":
-                    return block.Large;
-                case "pole":
-                    return block.Pole;
-                default:
-                    return block.Medium;
+                return size.ToLower() switch
+                {
+                    "small" => block.Small,
+                    "medium" => block.Medium,
+                    "large" => block.Large,
+                    "pole" => block.Pole,
+                    _ => block.Medium,
+                };
             }
         }
+
         return string.Empty;
     }
 

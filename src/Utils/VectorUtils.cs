@@ -4,8 +4,6 @@ using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Modules.Memory;
 using System.Runtime.InteropServices;
 
-namespace BlockMaker;
-
 public static class VectorUtils
 {
     private static bool IsPointOnLine(Vector start, Vector end, Vector point, double threshold)

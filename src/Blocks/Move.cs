@@ -3,9 +3,7 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Data;
 using System.Drawing;
-using static BlockMaker.VectorUtils;
-
-namespace BlockMaker;
+using static VectorUtils;
 
 public partial class Plugin
 {
@@ -64,6 +62,7 @@ public partial class Plugin
                 PrintToChat(player, $"{ChatColors.Red}Block not found in UsedBlocks");
                 return;
             }
+
             GrabBlockAdd(player, block);
         }
     }
@@ -100,6 +99,7 @@ public partial class Plugin
             if (PlayerHolds[player].distance > 350) PlayerHolds[player].distance += 7;
             PlayerHolds[player].distance += 3;
         }
+
         else if (player.Buttons.HasFlag(PlayerButtons.Attack2) && PlayerHolds[player].distance > 3)
         {
             if (PlayerHolds[player].distance > 350) PlayerHolds[player].distance -= 7;
@@ -117,6 +117,7 @@ public partial class Plugin
         {
             PlayerHolds[player].block.Teleport(null, new QAngle(PlayerHolds[player].block.AbsRotation!.X, PlayerHolds[player].block.AbsRotation!.Y + 3, PlayerHolds[player].block.AbsRotation!.Z));
         }
+
         else if (player.Buttons.HasFlag(PlayerButtons.Attack2))
         {
             PlayerHolds[player].block.Teleport(null, new QAngle(PlayerHolds[player].block.AbsRotation!.X, PlayerHolds[player].block.AbsRotation!.Y, PlayerHolds[player].block.AbsRotation!.Z + 3));

@@ -30,43 +30,49 @@ public class Settings
 
     public class Settings_Blocks
     {
-        public class Settings_DurationTime
-        {
-            public float Gravity { get; set; } = 4.0f;
-            public float Speed { get; set; } = 3.0f;
-            public float Invincibility { get; set; } = 5.0f;
-            public float Camouflage { get; set; } = 5.0f;
-            public float Stealth { get; set; } = 5.0f;
-            public float Delay { get; set; } = 2.0f;
-        }
-        public Settings_DurationTime Durations { get; set; } = new Settings_DurationTime();
+        public bool DisableShadows { get; set; } = true;
 
-        public class Settings_BlockValues
+        public class Settings_Block
         {
-            public float Gravity { get; set; } = 0.4f;
-            public float Speed { get; set; } = 1.5f;
-            public string CamouflageT { get; set; } = "characters/models/tm_leet/tm_leet_variantb.vmdl";
-            public string CamouflageCT { get; set; } = "characters/models/ctm_fbi/ctm_fbi.vmdl";
-            public int Slap { get; set; } = 2;
-            public int Fire { get; set; } = 5;
-            public int Damage { get; set; } = 5;
+            public float Duration { get; set; }
+            public float Cooldown { get; set; }
+            public float Value { get; set; }
         }
-        public Settings_BlockValues Values { get; set; } = new Settings_BlockValues();
 
-        public class Settings_ResetTime
+        public Settings_Block Bhop { get; set; } = new Settings_Block { Cooldown = 2.0f };
+        public Settings_Block Health { get; set; } = new Settings_Block { Value = 2.0f };
+        public Settings_Block Grenade { get; set; } = new Settings_Block { Cooldown = 60.0f };
+        public Settings_Block Gravity { get; set; } = new Settings_Block { Duration = 4.0f, Value = 0.4f };
+        public Settings_Block Frost { get; set; } = new Settings_Block { Cooldown = 60.0f };
+        public Settings_Block Flash { get; set; } = new Settings_Block { Cooldown = 60.0f };
+        public Settings_Block Fire { get; set; } = new Settings_Block { Duration = 5.0f, Value = 8.0f };
+        public Settings_Block Delay { get; set; } = new Settings_Block { Duration = 1.0f, Cooldown = 2.0f };
+        public Settings_Block Damage { get; set; } = new Settings_Block { Value = 5.0f };
+        public Settings_Block Stealth { get; set; } = new Settings_Block { Duration = 10.0f, Cooldown = 60.0f };
+        public Settings_Block Speed { get; set; } = new Settings_Block { Duration = 3.0f, Value = 1.5f, Cooldown = 60.0f };
+        public Settings_Block Slap { get; set; } = new Settings_Block { Value = 2.0f };
+        public Settings_Block Random { get; set; } = new Settings_Block { Cooldown = 60.0f };
+        public Settings_Block Invincibility { get; set; } = new Settings_Block { Duration = 5.0f, Cooldown = 60.0f };
+        //public Settings_Block SpeedBoost { get; set; } = new Settings_Block();
+        //public Settings_Block Trampoline { get; set; } = new Settings_Block();
+        //public Settings_Block Death { get; set; } = new Settings_Block();
+        //public Settings_Block Deagle { get; set; } = new Settings_Block();
+        //public Settings_Block AWP { get; set; } = new Settings_Block();
+        //public Settings_Block NoFallDmg { get; set; } = new Settings_Block();
+        //public Settings_Block Glass { get; set; } = new Settings_Block();
+        //public Settings_Block TBarrier { get; set; } = new Settings_Block();
+        //public Settings_Block CTBarrier { get; set; } = new Settings_Block();
+        //public Settings_Block Nuke { get; set; } = new Settings_Block();
+        //public Settings_Block NoSlowDown { get; set; } = new Settings_Block();
+        //public Settings_Block Honey { get; set; } = new Settings_Block();
+        //public Settings_Block Ice { get; set; } = new Settings_Block();
+
+        public class Settings_BlockCamouflage : Settings_Block
         {
-            public float Bhop { get; set; } = 2.0f;
-            public float FrostGrenade { get; set; } = 60.0f;
-            public float HEGrenade { get; set; } = 60.0f;
-            public float Flashbang { get; set; } = 60.0f;
-            public float Stealth { get; set; } = 60.0f;
-            public float Camouflage { get; set; } = 60.0f;
-            public float Invincibility { get; set; } = 60.0f;
-            public float Speed { get; set; } = 60.0f;
-            public float Delay { get; set; } = 2.0f;
-            public float Random { get; set; } = 60.0f;
+            public string ModelT { get; set; } = "characters/models/ctm_fbi/ctm_fbi.vmdl";
+            public string ModelCT { get; set; } = "characters/models/tm_leet/tm_leet_variantb.vmdl";
         }
-        public Settings_ResetTime Cooldowns { get; set; } = new Settings_ResetTime();
+        public Settings_BlockCamouflage Camouflage { get; set; } = new Settings_BlockCamouflage { Duration = 10.0f, Cooldown = 60.0f};
     }
     public Settings_Blocks Blocks { get; set; } = new Settings_Blocks();
 }
@@ -111,14 +117,16 @@ public class Commands
     public class Commands_Building
     {
         public string BuildMenu { get; set; } = "buildmenu,blockmenu,blocksmenu";
-        public string CreateBlock { get; set; } = "create,block,createblock";
+        public string SelectBlockType { get; set; } = "block, blocktype";
+        public string CreateBlock { get; set; } = "create,createblock,place,placeblock";
         public string DeleteBlock { get; set; } = "delete,deleteblock,remove,removeblock";
         public string RotateBlock { get; set; } = "rotate,rotateblock";
         public string SaveBlocks { get; set; } = "save,saveblocks,saveblock";
-        public string Snapping { get; set; } = "snap,togglesnap,snapping";
-        public string Grid { get; set; } = "grid,togglegrid";
+        public string Snapping { get; set; } = "snap,snapblock,blocksnap";
+        public string Grid { get; set; } = "grid";
         public string Noclip { get; set; } = "nc,noclip";
         public string Godmode { get; set; } = "god,godmode";
+        public string TestBlock { get; set; } = "testblock";
     }
     public Commands_Building Building { get; set; } = new Commands_Building();
 }

@@ -1,436 +1,448 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Entities.Constants;
+using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Drawing;
-using System.Reflection;
 
-namespace BlockMaker;
-
-public partial class Plugin
+public class Blocks
 {
-    public Dictionary<int, BlocksCooldown> blocksCooldown = new Dictionary<int, BlocksCooldown>();
-
-    public void BlockCooldownTimer(CCSPlayerController player, string block, float timer)
+    private static Dictionary<string, Action<CCSPlayerController, CBaseProp>> blockActions = null!;
+    private static Settings.Settings_Blocks settings = Plugin.Instance.Config.Settings.Blocks;
+    private static Sounds.Sounds_Blocks sounds = Plugin.Instance.Config.Sounds.Blocks;
+    public static void Load()
     {
-        if (timer == 0)
+        var block = Plugin.BlockModels;
+        blockActions = new Dictionary<string, Action<CCSPlayerController, CBaseProp>>
+        {
+            { block.Random.Title, Action_Random },
+            { block.Bhop.Title, Action_Bhop },
+            { block.NoFallDmg.Title, Action_NoFallDmg },
+            { block.Gravity.Title, Action_Gravity },
+            { block.Health.Title, Action_Health },
+            { block.Grenade.Title, Action_Grenade },
+            { block.Frost.Title, Action_Frost },
+            { block.Flash.Title, Action_Flash },
+            { block.Fire.Title, Action_Fire },
+            { block.Delay.Title, Action_Delay },
+            { block.Death.Title, Action_Death },
+            { block.Damage.Title, Action_Damage },
+            { block.Deagle.Title, Action_Deagle },
+            { block.AWP.Title, Action_AWP },
+            { block.Trampoline.Title, Action_Trampoline },
+            { block.SpeedBoost.Title, Action_SpeedBoost },
+            { block.Speed.Title, Action_Speed },
+            { block.Slap.Title, Action_Slap },
+            { block.Nuke.Title, Action_Nuke },
+            { block.Stealth.Title, Action_Stealth },
+            { block.Invincibility.Title, Action_Invincibility },
+            { block.Camouflage.Title, Action_Camouflage },
+            { block.Platform.Title, Action_Platform },
+            { block.Honey.Title, Action_Honey },
+            { block.Glass.Title, Action_Glass },
+            { block.TBarrier.Title, Action_TBarrier },
+            { block.CTBarrier.Title, Action_CTBarrier },
+            { block.Ice.Title, Action_Ice },
+            { block.NoSlowDown.Title, Action_NoSlowDown }
+        };
+    }
+
+    public static Dictionary<int, BlocksCooldown> blocksCooldown = new Dictionary<int, BlocksCooldown>();
+    public static void BlockCooldownTimer(CCSPlayerController player, string block, float timer)
+    {
+        if (timer <= 0)
             return;
 
-        AddTimer(timer, () =>
+        Plugin.Instance.AddTimer(timer, () =>
         {
-            PropertyInfo blockProperty = typeof(BlocksCooldown).GetProperty(block)!;
+            var cooldownProperty = blocksCooldown[player.Slot].GetType().GetField(block);
 
-            if (blockProperty != null && blockProperty.PropertyType == typeof(bool))
+            if (cooldownProperty != null && cooldownProperty.FieldType == typeof(bool))
             {
-                bool currentValue = (bool)blockProperty.GetValue(blocksCooldown[player.Slot])!;
+                bool cooldown = (bool)cooldownProperty.GetValue(blocksCooldown[player.Slot])!;
 
-                if (currentValue)
+                if (cooldown)
                 {
-                    blockProperty.SetValue(blocksCooldown[player.Slot], false);
-                    PrintToChat(player, $"{ChatColors.White}{block} {ChatColors.Grey}block cooldown has reset");
+                    cooldownProperty.SetValue(blocksCooldown[player.Slot], false);
+                    Plugin.Instance.PrintToChat(player, $"{ChatColors.White}{block} {ChatColors.Grey}block is no longer on cooldown");
                 }
             }
+
+            else Plugin.Instance.PrintToChat(player, $"{ChatColors.Red}Error: could not reset cooldown for {block} block");
         });
     }
 
-    public void BlockActions(CCSPlayerController player, CPhysicsPropOverride block)
+    public static void Actions(CCSPlayerController player, CBaseProp block)
     {
         if (block == null || player.NotValid())
             return;
 
-        if (block.Entity == null || string.IsNullOrEmpty(block.Entity.Name))
+        if (block.Entity == null)
             return;
 
         if (!blocksCooldown.ContainsKey(player.Slot))
             blocksCooldown[player.Slot] = new BlocksCooldown();
 
+        string blockName = block.Entity.Name;
 
-        if (block.Entity.Name == "Random")
-        {
-            if (blocksCooldown[player.Slot].Random)
-                return;
-
-            string[] randomBlocks =
-                {
-                    "Gravity", "Grenade", "Frost", "Flash", "AWP",
-                    "Deagle", "Camouflage", "Invincibility", "Stealth",
-                    "Speed", "Death", "SpeedBoost",
-                };
-
-            Random random = new Random();
-            int randomIndex = random.Next(0, randomBlocks.Length);
-            string randomBlock = randomBlocks[randomIndex];
-
-            PrintToChat(player, $"You got {ChatColors.White}{randomBlock} {ChatColors.Grey}from the {ChatColors.White}Random {ChatColors.Grey}block");
-
-            block.Entity.Name = randomBlock;
-
-            blocksCooldown[player.Slot].Random = true;
-
-            BlockCooldownTimer(player, "Random", Config.Settings.Blocks.Cooldowns.Random);
-        }
-
-        if (block.Entity.Name == "Bhop")
-        {
-            var render = block.Render;
-
-            AddTimer(0.1f, () =>
-            {
-                //disable?
-                block.Render = Color.FromArgb(100, 100, 100, 100);
-                Utilities.SetStateChanged(block, "CBaseModelEntity", "m_clrRender");
-            });
-
-            AddTimer(Config.Settings.Blocks.Cooldowns.Bhop, () =>
-            {
-                //enable?
-                block.Render = render;
-                Utilities.SetStateChanged(block, "CBaseModelEntity", "m_clrRender");
-            });
-
+        if (string.IsNullOrEmpty(blockName))
             return;
-        }
 
-        if (block.Entity.Name == "NoFallDmg")
-        {
-            player.PlayerPawn.Value!.TakesDamage = false;
-            AddTimer(0.01f, () => { player.PlayerPawn.Value.TakesDamage = true; });
-            return;
-        }
+        if (blockActions.TryGetValue(blockName, out var action))
+            action(player, block);
 
-        if (block.Entity.Name == "Gravity")
-        {
-            var gravity = player.GravityScale;
-
-            player.SetGravity(Config.Settings.Blocks.Values.Gravity);
-
-            AddTimer(Config.Settings.Blocks.Durations.Gravity, () =>
-            {
-                player.SetGravity(gravity);
-                PrintToChat(player, "Gravity has worn off");
-            });
-
-            return;
-        }
-
-        if (block.Entity.Name == "Health")
-        {
-            var playerPawn = player.Pawn();
-
-            if (playerPawn == null)
-                return;
-
-            player.Health(+2);
-
-            player.PlaySound(Config.Sounds.Blocks.Health);
-
-            player.ColorScreen(Color.FromArgb(150, 255, 0, 0), 0.25f, 0.5f, EntityExtends.FadeFlags.FADE_OUT);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Grenade")
-        {
-            if (blocksCooldown[player.Slot].Grenade)
-                return;
-
-            player.GiveWeapon("weapon_hegrenade");
-
-            blocksCooldown[player.Slot].Grenade = true;
-
-            BlockCooldownTimer(player, "Grenade", Config.Settings.Blocks.Cooldowns.HEGrenade);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Frost")
-        {
-            if (blocksCooldown[player.Slot].Frost)
-                return;
-
-            player.GiveWeapon("weapon_smokegrenade");
-
-            blocksCooldown[player.Slot].Frost = true;
-
-            BlockCooldownTimer(player, "Frost", Config.Settings.Blocks.Cooldowns.FrostGrenade);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Flash")
-        {
-            if (blocksCooldown[player.Slot].Flash)
-                return;
-
-            player.GiveWeapon("weapon_flashbang");
-
-            blocksCooldown[player.Slot].Flash = true;
-
-            BlockCooldownTimer(player, "Flash", Config.Settings.Blocks.Cooldowns.Flashbang);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Fire")
-        {
-            var fire = Utilities.CreateEntityByName<CParticleSystem>("info_particle_system")!;
-
-            fire.EffectName = "particles/inferno_fx/molotov_fire01.vpcf";
-            fire.DispatchSpawn();
-            fire.AcceptInput("Start");
-
-            player.Health(-Config.Settings.Blocks.Values.Fire);
-
-            player.PlaySound(Config.Sounds.Blocks.Damage);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Delay")
-        {
-            var render = block.Render;
-            
-            AddTimer(Config.Settings.Blocks.Durations.Delay, () =>
-            {
-                //disable?
-                block.Render = Color.FromArgb(100, 100, 100, 100);
-                Utilities.SetStateChanged(block, "CBaseModelEntity", "m_clrRender");
-            });
-
-            AddTimer(Config.Settings.Blocks.Cooldowns.Delay, () =>
-            {
-                //enable?
-                block.Render = render;
-                Utilities.SetStateChanged(block, "CBaseModelEntity", "m_clrRender");
-            });
-
-            return;
-        }
-
-        if (block.Entity.Name == "Death")
-        {
-            player.CommitSuicide(false, true);
-            return;
-        }
-
-        if (block.Entity.Name == "Damage")
-        {
-            var playerPawn = player.Pawn();
-
-            if (playerPawn == null)
-                return;
-
-            player.Health(-Config.Settings.Blocks.Values.Damage);
-
-            player.PlaySound(Config.Sounds.Blocks.Damage);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Deagle")
-        {
-            if (blocksCooldown[player.Slot].Deagle)
-                return;
-
-            player.GiveWeapon("weapon_deagle");
-            player.FindWeapon("weapon_deagle").SetAmmo(1,0);
-            PrintToChatAll($"{ChatColors.LightPurple}{player.PlayerName} {ChatColors.Grey}has got a Deagle");
-
-            blocksCooldown[player.Slot].Deagle = true;
-
-            return;
-        }
-
-        if (block.Entity.Name == "AWP")
-        {
-            if (blocksCooldown[player.Slot].AWP)
-                return;
-
-            player.GiveWeapon("weapon_awp");
-            player.FindWeapon("weapon_awp").SetAmmo(1, 0);
-            PrintToChatAll($"{ChatColors.LightPurple}{player.PlayerName} {ChatColors.Grey}has got an AWP");
-
-            blocksCooldown[player.Slot].AWP = true;
-
-            return;
-        }
-
-        if (block.Entity.Name == "Trampoline")
-        {
-            return;
-        }
-
-        if (block.Entity.Name == "SpeedBoost")
-        {
-            return;
-        }
-
-        if (block.Entity.Name == "Speed")
-        {
-            if (blocksCooldown[player.Slot].Speed)
-                return;
-
-            var speed = player.Speed;
-
-            player.Speed = Config.Settings.Blocks.Values.Speed;
-
-            player.PlaySound(Config.Sounds.Blocks.Speed);
-
-            AddTimer(Config.Settings.Blocks.Durations.Speed, () =>
-            {
-                player.Speed = speed;
-                PrintToChat(player, "Speed has worn off");
-            });
-
-            blocksCooldown[player.Slot].Speed = true;
-
-            BlockCooldownTimer(player, "Speed", Config.Settings.Blocks.Cooldowns.Speed);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Slap")
-        {
-            player.Slap(Config.Settings.Blocks.Values.Slap);
-            return;
-        }
-
-        if (block.Entity.Name == "Nuke")
-        {
-            CsTeam teamToNuke = 0;
-            string teamName = "";
-
-            if (player.IsT())
-            {
-                teamToNuke = CsTeam.CounterTerrorist;
-                teamName = "Counter-Terrorist";
-            }
-            else if (player.IsCT())
-            {
-                teamToNuke = CsTeam.Terrorist;
-                teamName = "Terrorist";
-            }
-
-            var playersToNuke = Utilities.GetPlayers().Where(p => p.Team == teamToNuke);
-
-            foreach (var playerToNuke in playersToNuke)
-                playerToNuke.CommitSuicide(false, true);
-
-            PrintToChatAll($"{ChatColors.LightPurple}{player.PlayerName} {ChatColors.Grey}has nuked the {teamName} team");
-
-            PlaySoundAll(Config.Sounds.Blocks.Nuke);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Stealth")
-        {
-            if (blocksCooldown[player.Slot].Stealth)
-                return;
-
-            player.SetInvis(true);
-
-            player.PlaySound(Config.Sounds.Blocks.Stealth);
-
-            player.ColorScreen(Color.FromArgb(150, 100, 100, 100), 2.5f, 5.0f, EntityExtends.FadeFlags.FADE_OUT);
-
-            AddTimer(Config.Settings.Blocks.Durations.Stealth, () =>
-            {
-                player.SetInvis(false);
-                PrintToChat(player, "Stealth has worn off");
-            });
-
-            blocksCooldown[player.Slot].Stealth = true;
-
-            BlockCooldownTimer(player, "Stealth", Config.Settings.Blocks.Cooldowns.Stealth);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Invincibility")
-        {
-            if (blocksCooldown[player.Slot].Invincibility)
-                return;
-
-            player.TakesDamage = false;
-
-            player.PlaySound(Config.Sounds.Blocks.Invincibility);
-
-            player.ColorScreen(Color.FromArgb(150, 100, 0, 100), 2.5f, 5.0f, EntityExtends.FadeFlags.FADE_OUT);
-
-            AddTimer(Config.Settings.Blocks.Durations.Invincibility, () =>
-            {
-                player.TakesDamage = true;
-                PrintToChat(player, "Invincibility has worn off");
-            });
-
-            blocksCooldown[player.Slot].Invincibility = true;
-
-            BlockCooldownTimer(player, "Invincibility", Config.Settings.Blocks.Cooldowns.Invincibility);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Camouflage")
-        {
-            if (blocksCooldown[player.Slot].Camouflage)
-                return;
-
-            var model = player.CBodyComponent!.SceneNode!.GetSkeletonInstance().ModelState.ModelName;
-
-             if (player.IsT())
-                player.SetModel(Config.Settings.Blocks.Values.CamouflageT);
-
-            else if (player.IsCT())
-                player.SetModel(Config.Settings.Blocks.Values.CamouflageT);
-
-            player.PlaySound(Config.Sounds.Blocks.Camouflage);
-
-            AddTimer(Config.Settings.Blocks.Durations.Camouflage, () =>
-            {
-                player.SetModel(model);
-                PrintToChat(player, "Camouflage has worn off");
-            });
-
-            blocksCooldown[player.Slot].Camouflage = true;
-
-            BlockCooldownTimer(player, "Camouflage", Config.Settings.Blocks.Cooldowns.Camouflage);
-
-            return;
-        }
-
-        if (block.Entity.Name == "Platform")
-        {
-            return;
-        }
-
-        if (block.Entity.Name == "Honey")
-        {
-            return;
-        }
-
-        if (block.Entity.Name == "Glass")
-        {
-            return;
-        }
-
-        if (block.Entity.Name == "T-Barrier")
-        {
-            return;
-        }
-
-        if (block.Entity.Name == "CT-Barrier")
-        {
-            return;
-        }
-
-        if (block.Entity.Name == "Ice")
-        {
-            return;
-        }
-
-        if (block.Entity.Name == "NoSlowDown")
-        {
-            return;
-        }
+        else Plugin.Instance.PrintToChat(player, $"{ChatColors.Red}Error: No action found for {blockName} block");
     }
+
+    private static void Action_Random(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].Random)
+            return;
+
+        var availableActions = blockActions.Where(kvp => kvp.Key != Plugin.BlockModels.Random.Title).ToList();
+
+        var randomAction = availableActions[new Random().Next(availableActions.Count)];
+
+        randomAction.Value(player, block);
+
+        Plugin.Instance.PrintToChat(player, $"You got {ChatColors.White}{randomAction.Key} {ChatColors.Grey}from the {ChatColors.White}{block.Entity!.Name} {ChatColors.Grey}block");
+
+        blocksCooldown[player.Slot].Random = true;
+
+        BlockCooldownTimer(player, "Random", settings.Random.Cooldown);
+    }
+
+    private static void Action_Bhop(CCSPlayerController player, CBaseProp block)
+    {
+        var movetype = block.MoveType;
+        var solidflags = block.Collision.SolidFlags;
+        var solidftype = block.Collision.SolidType;
+        var collisiongroup = block.Collision.CollisionGroup;
+
+        var render = block.Render;
+
+        Plugin.Instance.AddTimer(0.1f, () =>
+        {
+            block.MoveType = MoveType_t.MOVETYPE_VPHYSICS;
+            block.Collision.SolidFlags = 0x0008;
+            block.Collision.SolidType = SolidType_t.SOLID_VPHYSICS;
+            block.Collision.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_NEVER;
+
+            block.Render = Color.FromArgb(125, 125, 125, 125);
+            Utilities.SetStateChanged(block, "CBaseModelEntity", "m_clrRender");
+        });
+
+        Plugin.Instance.AddTimer(settings.Bhop.Cooldown, () =>
+        {
+            block.MoveType = movetype;
+            block.Collision.SolidFlags = solidflags;
+            block.Collision.SolidType = solidftype;
+            block.Collision.CollisionGroup = collisiongroup;
+
+            block.Render = render;
+            Utilities.SetStateChanged(block, "CBaseModelEntity", "m_clrRender");
+        });
+    }
+
+    private static void Action_NoFallDmg(CCSPlayerController player, CBaseProp block)
+    {
+        player.PlayerPawn.Value!.TakesDamage = false;
+        Plugin.Instance.AddTimer(0.01f, () => { player.PlayerPawn.Value.TakesDamage = true; });
+    }
+
+    private static void Action_Gravity(CCSPlayerController player, CBaseProp block)
+    {
+        var gravity = player.GravityScale;
+
+        player.SetGravity(settings.Gravity.Value);
+
+        Plugin.Instance.AddTimer(settings.Gravity.Duration, () =>
+        {
+            player.SetGravity(gravity);
+            Plugin.Instance.PrintToChat(player, $"{block.Entity!.Name} has worn off");
+        });
+    }
+
+    private static void Action_Health(CCSPlayerController player, CBaseProp block)
+    {
+        if (player.Pawn()!.Health >= player.Pawn()!.MaxHealth)
+            return;
+
+        player.Health(+2);
+        player.PlaySound(sounds.Health);
+    }
+
+    private static void Action_Grenade(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].Grenade)
+            return;
+
+        player.GiveWeapon("weapon_hegrenade");
+
+        blocksCooldown[player.Slot].Grenade = true;
+        BlockCooldownTimer(player, "Grenade", settings.Grenade.Cooldown);
+    }
+
+    private static void Action_Frost(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].Frost)
+            return;
+
+        player.GiveWeapon("weapon_smokegrenade");
+
+        blocksCooldown[player.Slot].Frost = true;
+        BlockCooldownTimer(player, "Smoke", settings.Frost.Cooldown);
+    }
+
+    private static void Action_Flash(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].Flash)
+            return;
+
+        player.GiveWeapon("weapon_flashbang");
+
+        blocksCooldown[player.Slot].Flash = true;
+        BlockCooldownTimer(player, "Flash", settings.Flash.Cooldown);
+    }
+
+    private static void Action_Fire(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].Fire)
+            return;
+
+        var fire = Utilities.CreateEntityByName<CParticleSystem>("info_particle_system")!;
+
+        fire.EffectName = "particles/burning_fx/env_fire_medium.vpcf";
+
+        fire.DispatchSpawn();
+        fire.AcceptInput("Start");
+        fire.AcceptInput("FollowEntity", player.Pawn(), player.Pawn(), "!activator");
+
+        player.Health((int)- settings.Fire.Value);
+
+        var firetimer = Plugin.Instance.AddTimer(1.0f, () =>
+        {
+            player.Health((int)- settings.Fire.Value);
+        }, TimerFlags.REPEAT);
+
+        Plugin.Instance.AddTimer(settings.Fire.Duration, () =>
+        {
+            firetimer.Kill();
+            fire.AcceptInput("Stop");
+            fire.Remove();
+        });
+
+        blocksCooldown[player.Slot].Fire = true;
+    }
+
+    private static void Action_Delay(CCSPlayerController player, CBaseProp block)
+    {
+        var movetype = block.MoveType;
+        var solidflags = block.Collision.SolidFlags;
+        var solidftype = block.Collision.SolidType;
+        var collisiongroup = block.Collision.CollisionGroup;
+
+        var render = block.Render;
+
+        Plugin.Instance.AddTimer(settings.Delay.Duration, () =>
+        {
+            block.MoveType = MoveType_t.MOVETYPE_VPHYSICS;
+            block.Collision.SolidFlags = 0x0008;
+            block.Collision.SolidType = SolidType_t.SOLID_VPHYSICS;
+            block.Collision.CollisionGroup = (byte)CollisionGroup.COLLISION_GROUP_NEVER;
+
+            block.Render = Color.FromArgb(125, 125, 125, 125);
+            Utilities.SetStateChanged(block, "CBaseModelEntity", "m_clrRender");
+        });
+
+        Plugin.Instance.AddTimer(settings.Delay.Cooldown, () =>
+        {
+            block.MoveType = movetype;
+            block.Collision.SolidFlags = solidflags;
+            block.Collision.SolidType = solidftype;
+            block.Collision.CollisionGroup = collisiongroup;
+
+            block.Render = render;
+            Utilities.SetStateChanged(block, "CBaseModelEntity", "m_clrRender");
+        });
+    }
+
+    private static void Action_Death(CCSPlayerController player, CBaseProp block)
+    {
+        if (player.Pawn()!.TakesDamage == false)
+        {
+            Plugin.Instance.PrintToChat(player, "looks like you avoided death");
+            return;
+        }
+
+        player.CommitSuicide(false, true);
+    }
+
+    private static void Action_Damage(CCSPlayerController player, CBaseProp block)
+    {
+        var playerPawn = player.Pawn();
+
+        if (playerPawn == null)
+            return;
+
+        player.Health((int)- settings.Damage.Value);
+        player.PlaySound(sounds.Damage);
+    }
+
+    private static void Action_Deagle(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].Deagle)
+            return;
+
+        player.GiveWeapon("weapon_deagle");
+        player.FindWeapon("weapon_deagle").SetAmmo(1, 0);
+
+        Plugin.Instance.PrintToChatAll($"{ChatColors.LightPurple}{player.PlayerName} {ChatColors.Grey}has got a Deagle");
+
+        blocksCooldown[player.Slot].Deagle = true;
+    }
+
+    private static void Action_AWP(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].AWP)
+            return;
+
+        player.GiveWeapon("weapon_awp");
+        player.FindWeapon("weapon_awp").SetAmmo(1, 0);
+
+        Plugin.Instance.PrintToChatAll($"{ChatColors.LightPurple}{player.PlayerName} {ChatColors.Grey}has got an AWP");
+
+        blocksCooldown[player.Slot].AWP = true;
+    }
+
+    private static void Action_Trampoline(CCSPlayerController player, CBaseProp block)
+    {
+
+    }
+
+    private static void Action_SpeedBoost(CCSPlayerController player, CBaseProp block)
+    {
+
+    }
+
+    private static void Action_Speed(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].Speed)
+            return;
+
+        var speed = player.Speed;
+
+        player.Speed = settings.Speed.Value;
+        player.PlaySound(sounds.Speed);
+
+        Plugin.Instance.AddTimer(settings.Speed.Duration, () =>
+        {
+            player.Speed = speed;
+            Plugin.Instance.PrintToChat(player, $"{block.Entity!.Name} has worn off");
+        });
+
+        blocksCooldown[player.Slot].Speed = true;
+        BlockCooldownTimer(player, "Speed", settings.Speed.Cooldown);
+    }
+
+    private static void Action_Slap(CCSPlayerController player, CBaseProp block)
+    {
+        player.Slap((int)settings.Slap.Value);
+    }
+
+    private static void Action_Nuke(CCSPlayerController player, CBaseProp block)
+    {
+        CsTeam teamToNuke = 0;
+        string teamName = "";
+
+        if (player.IsT())
+        {
+            teamToNuke = CsTeam.CounterTerrorist;
+            teamName = "Counter-Terrorist";
+        }
+        else if (player.IsCT())
+        {
+            teamToNuke = CsTeam.Terrorist;
+            teamName = "Terrorist";
+        }
+
+        var playersToNuke = Utilities.GetPlayers().Where(p => p.Team == teamToNuke);
+
+        foreach (var playerToNuke in playersToNuke)
+            playerToNuke.CommitSuicide(false, true);
+
+        Plugin.Instance.PrintToChatAll($"{ChatColors.LightPurple}{player.PlayerName} {ChatColors.Grey}has nuked the {teamName} team");
+
+        Plugin.Instance.PlaySoundAll(sounds.Nuke);
+    }
+
+    private static void Action_Stealth(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].Stealth)
+            return;
+
+        player.SetInvis(true);
+        player.PlaySound(sounds.Stealth);
+        player.ColorScreen(Color.FromArgb(150, 100, 100, 100), 2.5f, 5.0f, EntityExtends.FadeFlags.FADE_OUT);
+
+        Plugin.Instance.AddTimer(settings.Stealth.Duration, () =>
+        {
+            player.SetInvis(false);
+            Plugin.Instance.PrintToChat(player, $"{block.Entity!.Name} has worn off");
+        });
+
+        blocksCooldown[player.Slot].Stealth = true;
+        BlockCooldownTimer(player, "Stealth", settings.Stealth.Cooldown);
+    }
+
+    private static void Action_Invincibility(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].Invincibility)
+            return;
+
+        player.Pawn()!.TakesDamage = false;
+        player.PlaySound(sounds.Invincibility);
+        player.ColorScreen(Color.FromArgb(100, 100, 0, 100), 2.5f, 5.0f, EntityExtends.FadeFlags.FADE_OUT);
+
+        Plugin.Instance.AddTimer(settings.Invincibility.Duration, () =>
+        {
+            player.Pawn()!.TakesDamage = true;
+            Plugin.Instance.PrintToChat(player, $"{block.Entity!.Name} has worn off");
+        });
+
+        blocksCooldown[player.Slot].Invincibility = true;
+        BlockCooldownTimer(player, "Invincibility", settings.Invincibility.Cooldown);
+    }
+
+    private static void Action_Camouflage(CCSPlayerController player, CBaseProp block)
+    {
+        if (blocksCooldown[player.Slot].Camouflage)
+            return;
+
+        var model = player.Pawn()!.CBodyComponent!.SceneNode!.GetSkeletonInstance().ModelState.ModelName;
+
+        if (player.IsT())
+            player.SetModel(settings.Camouflage.ModelT);
+        else if (player.IsCT())
+            player.SetModel(settings.Camouflage.ModelCT);
+
+        player.PlaySound(sounds.Camouflage);
+
+        Plugin.Instance.AddTimer(settings.Camouflage.Duration, () =>
+        {
+            player.SetModel(model);
+            Plugin.Instance.PrintToChat(player, $"{block.Entity!.Name} has worn off");
+        });
+
+        blocksCooldown[player.Slot].Camouflage = true;
+        BlockCooldownTimer(player, "Camouflage", settings.Camouflage.Cooldown);
+    }
+
+    private static void Action_Platform(CCSPlayerController player, CBaseProp block) { }
+    private static void Action_Honey(CCSPlayerController player, CBaseProp block) { }
+    private static void Action_Glass(CCSPlayerController player, CBaseProp block) { }
+    private static void Action_TBarrier(CCSPlayerController player, CBaseProp block) { }
+    private static void Action_CTBarrier(CCSPlayerController player, CBaseProp block) { }
+    private static void Action_Ice(CCSPlayerController player, CBaseProp block) { }
+    private static void Action_NoSlowDown(CCSPlayerController player, CBaseProp block) { }
 }

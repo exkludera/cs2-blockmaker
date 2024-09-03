@@ -7,8 +7,7 @@ using CounterStrikeSharp.API.Modules.UserMessages;
 using CounterStrikeSharp.API.Modules.Utils;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
-
-namespace BlockMaker;
+using System.Runtime.InteropServices;
 
 public static class EntityExtends
 {
@@ -108,10 +107,10 @@ public static class EntityExtends
         }
     }
 
-    public static void GiveWeapon(this CCSPlayerController? player, String name)
+    public static void GiveWeapon(this CCSPlayerController? player, String weaponName)
     {
         if (player.IsAlive())
-            player.GiveNamedItem("weapon_" + name);
+            player.GiveNamedItem(weaponName);
     }
 
     public static void StripWeapons(this CCSPlayerController? player, bool removeKnife = false)
@@ -137,7 +136,8 @@ public static class EntityExtends
         }
     }
 
-    private static readonly MemoryFunctionWithReturn<nint, string, int, int> SetBodygroupFunc = new("55 48 89 E5 41 56 49 89 F6 41 55 41 89 D5 41 54 49 89 FC 48 83 EC 08");
+
+    private static readonly MemoryFunctionWithReturn<nint, string, int, int> SetBodygroupFunc = new(RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "55 48 89 E5 41 56 49 89 F6 41 55 41 89 D5 41 54 49 89 FC 48 83 EC 08" : "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 41 8B F8 48 8B F2 48 8B D9 E8 ? ? ? ?");
 
     private static readonly Func<nint, string, int, int> SetBodygroup = SetBodygroupFunc.Invoke;
 
@@ -150,47 +150,39 @@ public static class EntityExtends
             var respawnpos = new Vector(pawn.AbsOrigin!.X, pawn.AbsOrigin.Y, pawn.AbsOrigin.Z);
             var respawnrotation = new QAngle(pawn.AbsRotation!.X, pawn.AbsRotation.Y, pawn.AbsRotation.Z);
 
-            player.Respawn();
+            pawn!.Render = status ? Color.FromArgb(0, 0, 0, 0) : Color.FromArgb(strength, strength, strength, strength);
+            Utilities.SetStateChanged(pawn, "CBaseModelEntity", "m_clrRender");
 
-            Server.NextFrame(() =>
+            SetBodygroup(pawn.Handle, "default_gloves", status ? 0 : 1);
+
+            var activeWeapon = pawn!.WeaponServices?.ActiveWeapon.Value;
+            if (activeWeapon != null && activeWeapon.IsValid)
             {
-                player.Teleport(respawnpos, respawnrotation);
+                activeWeapon.Render = status ? Color.FromArgb(0, 0, 0, 0) : Color.FromArgb(strength, strength, strength, strength);
+                activeWeapon.ShadowStrength = status ? 0.0f : 1.0f;
+                Utilities.SetStateChanged(activeWeapon, "CBaseModelEntity", "m_clrRender");
+            }
 
-                pawn!.Render = status ? Color.FromArgb(0, 0, 0, 0) : Color.FromArgb(strength, strength, strength, strength);
-                Utilities.SetStateChanged(pawn, "CBaseModelEntity", "m_clrRender");
-
-                var gloves = pawn.EconGloves;
-                SetBodygroup(pawn.Handle, "default_gloves", status ? 0 : 1);
-
-                var activeWeapon = pawn!.WeaponServices?.ActiveWeapon.Value;
-                if (activeWeapon != null && activeWeapon.IsValid)
+            var myWeapons = pawn!.WeaponServices?.MyWeapons;
+            if (myWeapons != null)
+            {
+                foreach (var gun in myWeapons)
                 {
-                    activeWeapon.Render = status ? Color.FromArgb(0, 0, 0, 0) : Color.FromArgb(strength, strength, strength, strength);
-                    activeWeapon.ShadowStrength = status ? 0.0f : 1.0f;
-                    Utilities.SetStateChanged(activeWeapon, "CBaseModelEntity", "m_clrRender");
-                }
-
-                var myWeapons = pawn!.WeaponServices?.MyWeapons;
-                if (myWeapons != null)
-                {
-                    foreach (var gun in myWeapons)
+                    var weapon = gun.Value;
+                    if (weapon != null)
                     {
-                        var weapon = gun.Value;
-                        if (weapon != null)
-                        {
-                            weapon.Render = status ? Color.FromArgb(0, 0, 0, 0) : Color.FromArgb(strength, strength, strength, strength);
-                            weapon.ShadowStrength = status ? 0.0f : 1.0f;
-                            Utilities.SetStateChanged(weapon, "CBaseModelEntity", "m_clrRender");
+                        weapon.Render = status ? Color.FromArgb(0, 0, 0, 0) : Color.FromArgb(strength, strength, strength, strength);
+                        weapon.ShadowStrength = status ? 0.0f : 1.0f;
+                        Utilities.SetStateChanged(weapon, "CBaseModelEntity", "m_clrRender");
 
-                            if (weapon.DesignerName == "weapon_c4")
-                            {
-                                weapon.AnimationUpdateScheduled = false;
-                                Utilities.SetStateChanged(weapon, "CBaseAnimGraph", "m_bAnimationUpdateScheduled");
-                            }
+                        if (weapon.DesignerName == "weapon_c4")
+                        {
+                            weapon.AnimationUpdateScheduled = false;
+                            Utilities.SetStateChanged(weapon, "CBaseAnimGraph", "m_bAnimationUpdateScheduled");
                         }
                     }
                 }
-            });
+            }
         }
     }
 
@@ -390,15 +382,18 @@ public static class EntityExtends
 
         CCSPlayerPawn pawn = player.Pawn()!;
 
-        player.ColorScreen(Color.FromArgb(150, 255, 0, 0), 0.25f, 0.5f, FadeFlags.FADE_OUT);
-
-        if (pawn.Health == pawn.MaxHealth)
-            return;
+        if (health >= 1)
+        {
+            if (pawn.Health >= pawn.MaxHealth)
+                return;
+        }
 
         int newHealth = Math.Min(pawn.Health + health, pawn.MaxHealth);
 
-        pawn.Health += newHealth;
+        pawn.Health = newHealth;
         Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth");
+
+        player.ColorScreen(Color.FromArgb(100, 255, 0, 0), 0.25f, 0.5f, FadeFlags.FADE_OUT);
 
         if (pawn.Health <= 0)
             pawn.CommitSuicide(true, true);

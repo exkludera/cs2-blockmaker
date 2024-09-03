@@ -1,12 +1,8 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Memory;
-using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using static CounterStrikeSharp.API.Core.Listeners;
-
-namespace BlockMaker;
 
 public partial class Plugin : BasePlugin, IPluginConfig<Config>
 {
@@ -24,9 +20,6 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         HookEntityOutput("*", "OnStartTouch", OnStartTouch, HookMode.Pre);
         HookEntityOutput("*", "OnTouching", OnTouching, HookMode.Pre);
         HookEntityOutput("*", "OnEndTouch", OnEndTouch, HookMode.Pre);
-
-        VirtualFunctions.CBaseTrigger_StartTouchFunc.Hook(OnStartTouchVF, HookMode.Pre);
-        VirtualFunctions.CBaseTrigger_EndTouchFunc.Hook(OnEndTouchVF, HookMode.Pre);
     }
 
     public void UnregisterEvents()
@@ -43,9 +36,6 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         UnhookEntityOutput("*", "OnStartTouch", OnStartTouch, HookMode.Pre);
         UnhookEntityOutput("*", "OnTouching", OnTouching, HookMode.Pre);
         UnhookEntityOutput("*", "OnEndTouch", OnEndTouch, HookMode.Pre);
-
-        VirtualFunctions.CBaseTrigger_StartTouchFunc.Unhook(OnStartTouchVF, HookMode.Pre);
-        VirtualFunctions.CBaseTrigger_EndTouchFunc.Unhook(OnEndTouchVF, HookMode.Pre);
     }
 
     private HookResult OnStartTouch(CEntityIOOutput output, string name, CEntityInstance activator, CEntityInstance caller, CVariant value, float delay)
@@ -63,36 +53,33 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         return HookResult.Continue;
     }
 
-    HookResult OnStartTouchVF(DynamicHook hook)
-    {
-        return HookResult.Continue;
-    }
-
-    HookResult OnEndTouchVF(DynamicHook hook)
-    {
-        return HookResult.Continue;
-    }
-
     public void OnServerPrecacheResources(ResourceManifest manifest)
     {
-        foreach (var block in BlockModels.Values)
+        var blockProperties = typeof(BlockModels).GetProperties();
+
+        foreach (var property in blockProperties)
         {
-            if (!string.IsNullOrEmpty(block.Small))
-                manifest.AddResource(block.Small);
+            var block = (BlockSizes)property.GetValue(BlockModels)!;
 
-            if (!string.IsNullOrEmpty(block.Medium))
-                manifest.AddResource(block.Medium);
+            if (block != null)
+            {
+                if (!string.IsNullOrEmpty(block.Small))
+                    manifest.AddResource(block.Small);
 
-            if (!string.IsNullOrEmpty(block.Large))
-                manifest.AddResource(block.Large);
+                if (!string.IsNullOrEmpty(block.Medium))
+                    manifest.AddResource(block.Medium);
 
-            if (!string.IsNullOrEmpty(block.Pole))
-                manifest.AddResource(block.Pole);
+                if (!string.IsNullOrEmpty(block.Large))
+                    manifest.AddResource(block.Large);
+
+                if (!string.IsNullOrEmpty(block.Pole))
+                    manifest.AddResource(block.Pole);
+            }
         }
 
-        manifest.AddResource(Config.Settings.Blocks.Values.CamouflageT);
-        manifest.AddResource(Config.Settings.Blocks.Values.CamouflageCT);
-        manifest.AddResource("particles/inferno_fx/molotov_fire01.vpcf");
+        manifest.AddResource(Config.Settings.Blocks.Camouflage.ModelT);
+        manifest.AddResource(Config.Settings.Blocks.Camouflage.ModelCT);
+        manifest.AddResource("particles/burning_fx/env_fire_medium.vpcf");
     }
 
     public void OnMapStart(string mapname)
@@ -144,7 +131,7 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         Timers.Clear();
         UsedBlocks.Clear();
         PlayerHolds.Clear();
-        blocksCooldown.Clear();
+        Blocks.blocksCooldown.Clear();
 
         SpawnBlocks();
 

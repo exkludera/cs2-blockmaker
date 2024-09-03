@@ -3,48 +3,62 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
-using System.Drawing;
-
-namespace BlockMaker;
 
 public partial class Plugin : BasePlugin, IPluginConfig<Config>
 {
     public void Commands()
     {
+        // toggle buildmode
         foreach (var cmd in Config.Commands.Admin.BuildMode.Split(','))
             AddCommand($"css_{cmd}", "Toggle build mode", (player, command) => Command_BuildMode(player));
 
+        // manage builders
         foreach (var cmd in Config.Commands.Admin.ManageBuilder.Split(','))
             AddCommand($"css_{cmd}", "Manage builder", Command_ManageBuilder);
 
+        // build menu
         foreach (var cmd in Config.Commands.Building.BuildMenu.Split(','))
             AddCommand($"css_{cmd}", "Open build menu", (player, command) => Command_BuildMenu(player));
 
+        // select block type
+        foreach (var cmd in Config.Commands.Building.SelectBlockType.Split(','))
+            AddCommand($"css_{cmd}", "Select Block Type", (player, command) => Command_SelectBlockType(player, command.ArgByIndex(1)));
+
+        //create block
         foreach (var cmd in Config.Commands.Building.CreateBlock.Split(','))
             AddCommand($"css_{cmd}", "Create block", (player, command) => Command_CreateBlock(player));
 
+        // delete block
         foreach (var cmd in Config.Commands.Building.DeleteBlock.Split(','))
             AddCommand($"css_{cmd}", "Delete block", (player, command) => Command_DeleteBlock(player));
 
+        // rotate block
         foreach (var cmd in Config.Commands.Building.RotateBlock.Split(','))
             AddCommand($"css_{cmd}", "Rotate block", (player, command) => Command_RotateBlock(player, command.ArgByIndex(1)));
 
+        // save blocks
         foreach (var cmd in Config.Commands.Building.SaveBlocks.Split(','))
             AddCommand($"css_{cmd}", "Save blocks", (player, command) => Command_SaveBlocks(player));
 
+        // toggle snap
         foreach (var cmd in Config.Commands.Building.Snapping.Split(','))
             AddCommand($"css_{cmd}", "Toggle block snapping", (player, command) => Command_Snapping(player));
 
+        // grid
         foreach (var cmd in Config.Commands.Building.Grid.Split(','))
-            AddCommand($"css_{cmd}", "Toggle block grid", (player, command) => Command_Grid(player));
+            AddCommand($"css_{cmd}", "Toggle block grid", (player, command) => Command_Grid(player, command.ArgByIndex(1)));
 
+        // noclip
         foreach (var cmd in Config.Commands.Building.Noclip.Split(','))
             AddCommand($"css_{cmd}", "Toggle noclip", (player, command) => Command_Noclip(player));
 
+        // godmode
         foreach (var cmd in Config.Commands.Building.Godmode.Split(','))
             AddCommand($"css_{cmd}", "Toggle godmode", (player, command) => Command_Godmode(player));
 
-        AddCommand($"css_testing", "test command", (player, command) => Command_Testing(player));
+        // godmode
+        foreach (var cmd in Config.Commands.Building.TestBlock.Split(','))
+            AddCommand($"css_{cmd}", "Test block", (player, command) => Command_Testblock(player));
     }
 
     public void ToggleCommand(CCSPlayerController player, ref bool commandStatus, string commandName)
@@ -144,6 +158,38 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         Menu.Command_OpenMenus(player);
     }
 
+    public void Command_SelectBlockType(CCSPlayerController? player, string selectType)
+    {
+        if (player == null || player.NotValid())
+            return;
+
+        if (!BuildMode(player))
+            return;
+
+        if (string.IsNullOrEmpty(selectType))
+        {
+            PrintToChat(player, $"Block Type: {ChatColors.Red}no block type specified");
+            return;
+        }
+
+        foreach (var property in typeof(BlockModels).GetProperties())
+        {
+            var block = (BlockSizes)property.GetValue(BlockModels)!;
+
+            string blockType = block.Title;
+
+            if (string.Equals(blockType, selectType, StringComparison.OrdinalIgnoreCase))
+            {
+                playerData[player.Slot].BlockType = blockType;
+                PrintToChat(player, $"Block Type: {ChatColors.Green}selected {blockType} block");
+                return;
+            }
+        }
+
+        PrintToChat(player, $"Block Type: {ChatColors.Red}could not find a matching block");
+    }
+
+
     public void Command_CreateBlock(CCSPlayerController? player)
     {
         if (player == null || player.NotValid())
@@ -199,7 +245,7 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         ToggleCommand(player, ref playerData[player.Slot].Snapping, "Block Snapping");
     }
 
-    public void Command_Grid(CCSPlayerController? player)
+    public void Command_Grid(CCSPlayerController? player, string grid)
     {
         if (player == null || player.NotValid())
             return;
@@ -207,7 +253,14 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         if (!BuildMode(player))
             return;
 
-        ToggleCommand(player, ref playerData[player.Slot].Grid, "Block Grid");
+        if (string.IsNullOrEmpty(grid))
+        {
+            ToggleCommand(player, ref playerData[player.Slot].Grid, "Block Grid");
+            return;
+        }
+
+        playerData[player.Slot].GridValue = float.Parse(grid);
+        PrintToChat(player, $"Selected Grid: {ChatColors.White}{grid} Units");
     }
 
     public void Command_Noclip(CCSPlayerController? player)
@@ -252,13 +305,41 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
             player.Pawn()!.TakesDamage = true;
     }
 
-    public bool testing;
-    public void Command_Testing(CCSPlayerController? player)
+    public void Command_Testblock(CCSPlayerController? player)
     {
         if (player == null || player.NotValid())
             return;
 
-        testing = !testing;
-        player.SetInvis(testing);
+        if (!BuildMode(player))
+            return;
+
+        var block = player.GetBlockAimTarget();
+
+        if (block == null)
+        {
+            PrintToChat(player, $"{ChatColors.Red}could not find a block to test");
+            return;
+        }
+
+        if (block.Entity == null || string.IsNullOrEmpty(block.Entity.Name))
+            return;
+
+        if (!Blocks.blocksCooldown.ContainsKey(player.Slot))
+            Blocks.blocksCooldown[player.Slot] = new BlocksCooldown();
+
+        var cooldownProperty = Blocks.blocksCooldown[player.Slot].GetType().GetField(block.Entity.Name);
+        if (cooldownProperty != null && cooldownProperty.FieldType == typeof(bool))
+        {
+            bool cooldown = (bool)cooldownProperty.GetValue(Blocks.blocksCooldown[player.Slot])!;
+
+            if (cooldown)
+            {
+                PrintToChat(player, $"{ChatColors.Red}{block.Entity.Name} block is on cooldown");
+                return;
+            }
+        }
+
+        PrintToChat(player, $"{ChatColors.Green}testing {block.Entity!.Name} block");
+        Blocks.Actions(player, block);
     }
 }

@@ -1,7 +1,5 @@
 ﻿using CounterStrikeSharp.API.Core;
 
-namespace BlockMaker;
-
 public interface IWasdMenu
 {
     public string? Title { get; set; }

@@ -1,9 +1,7 @@
 ﻿using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Menu;
 using CounterStrikeSharp.API.Modules.Utils;
-using static BlockMaker.Plugin;
-
-namespace BlockMaker;
+using static Plugin;
 
 public static class MenuChat
 {
@@ -127,7 +125,7 @@ public static class MenuChat
 
         GridMenu.AddMenuOption($"Toggle Grid", (p, option) =>
         {
-            Instance.Command_Grid(player);
+            Instance.Command_Grid(player, "");
 
             GridMenuOptions(player, gridValues);
         });
@@ -136,9 +134,7 @@ public static class MenuChat
         {
             GridMenu.AddMenuOption(gridValue.ToString() + " Units", (p, option) =>
             {
-                Instance.playerData[player.Slot].GridValue = gridValue;
-
-                Instance.PrintToChat(p, $"Selected Grid: {ChatColors.White}{gridValue} Units");
+                Instance.Command_Grid(player, gridValue.ToString());
 
                 GridMenuOptions(player, gridValues);
             });
@@ -151,15 +147,15 @@ public static class MenuChat
     {
         ChatMenu TypeMenu = new($"Select Type ({Instance.playerData[player.Slot].BlockType})");
 
-        foreach (var block in Instance.BlockModels)
+        foreach (var property in typeof(BlockModels).GetProperties())
         {
-            string blockName = block.Key;
+            var block = (BlockSizes)property.GetValue(Plugin.BlockModels)!;
+
+            string blockName = block.Title;
 
             TypeMenu.AddMenuOption(blockName, (player, menuOption) =>
             {
-                Instance.playerData[player.Slot].BlockType = blockName;
-
-                Instance.PrintToChat(player, $"Selected Block: {ChatColors.White}{blockName}");
+                Instance.Command_SelectBlockType(player, blockName);
 
                 TypeMenuOptions(player);
             });

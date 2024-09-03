@@ -1,7 +1,5 @@
 ﻿using CounterStrikeSharp.API.Core;
 
-namespace BlockMaker;
-
 public class WasdMenuOption : IWasdMenuOption
 {
     public IWasdMenu? Parent { get; set; }

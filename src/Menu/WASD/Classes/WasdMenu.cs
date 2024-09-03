@@ -1,7 +1,5 @@
 ﻿using CounterStrikeSharp.API.Core;
 
-namespace BlockMaker;
-
 public class WasdMenu : IWasdMenu
 {
     public string? Title { get; set; }  
@@ -11,6 +9,7 @@ public class WasdMenu : IWasdMenu
     {
         if (Options == null)
             Options = new();
+
         WasdMenuOption newOption = new WasdMenuOption
         {
             OptionDisplay = display,
@@ -18,6 +17,7 @@ public class WasdMenu : IWasdMenu
             Index = Options.Count,
             Parent = this
         };
+
         return Options.AddLast(newOption);
     }
 }

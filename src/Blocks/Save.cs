@@ -1,9 +1,7 @@
 ﻿using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
-using static BlockMaker.VectorUtils;
-
-namespace BlockMaker;
+using static VectorUtils;
 
 public partial class Plugin
 {
@@ -54,6 +52,7 @@ public partial class Plugin
                 PlaySoundAll(Config.Sounds.Building.Save);
 
             PrintToChatAll($"Saved {ChatColors.White}{GetPlacedBlocksCount()} {ChatColors.Grey}Block{(GetPlacedBlocksCount() == 1 ? "" : "s")} on {ChatColors.White}{GetMapName()}");
+
             Logger.LogInformation($"Saved {GetPlacedBlocksCount()} Block{(GetPlacedBlocksCount() == 1 ? "" : "s")} on {GetMapName()}");
         }
         catch

@@ -1,11 +1,8 @@
 ﻿using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
-
-namespace BlockMaker;
 
 public partial class Plugin
 {
@@ -49,7 +46,7 @@ public partial class Plugin
 
     public void CreateBlockEntity(string blockType, string blockModel, string blockSize, Vector blockPosition, QAngle blockRotation)
     {
-        var block = Utilities.CreateEntityByName<CPhysicsPropOverride>("prop_physics_override");
+        var block = Utilities.CreateEntityByName<CPhysicsPropOverride>("prop_physics_override")!;
 
         if (block != null && block.IsValid)
         {
@@ -59,11 +56,15 @@ public partial class Plugin
             block.Entity!.Name = blockType;
             block.EnableUseOutput = true;
             block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags = (uint)(block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags & ~(1 << 2));
+
             block.AcceptInput("DisableMotion", block, block);
             block.Teleport(new Vector(blockPosition.X, blockPosition.Y, blockPosition.Z), new QAngle(blockRotation.X, blockRotation.Y, blockRotation.Z));
 
+            block.ShadowStrength = Config.Settings.Blocks.DisableShadows ? 0.0f : 1.0f;
+
             UsedBlocks[block] = new BlockData(block, blockType, blockModel, blockSize);
         }
+
         else Logger.LogError("(CreateBlock) failed to create block");
     }
 

@@ -1,8 +1,6 @@
 ﻿using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
-using static BlockMaker.Plugin;
-
-namespace BlockMaker;
+using static Plugin;
 
 public static class MenuWASD
 {
@@ -126,7 +124,7 @@ public static class MenuWASD
 
         GridMenu.Add($"Toggle Grid", (p, option) =>
         {
-            Instance.Command_Grid(player);
+            Instance.Command_Grid(player, "");
 
             GridMenuOptions(player, gridValues);
         });
@@ -135,9 +133,7 @@ public static class MenuWASD
         {
             GridMenu.Add(gridValue.ToString() + " Units", (p, option) =>
             {
-                Instance.playerData[player.Slot].GridValue = gridValue;
-
-                Instance.PrintToChat(p, $"Selected Grid: {ChatColors.White}{gridValue} Units");
+                Instance.Command_Grid(player, gridValue.ToString());
 
                 GridMenuOptions(player, gridValues);
             });
@@ -150,15 +146,15 @@ public static class MenuWASD
     {
         IWasdMenu TypeMenu = WasdManager.CreateMenu($"Select Type ({Instance.playerData[player.Slot].BlockType})");
 
-        foreach (var block in Instance.BlockModels)
+        foreach (var property in typeof(BlockModels).GetProperties())
         {
-            string blockName = block.Key;
+            var block = (BlockSizes)property.GetValue(Plugin.BlockModels)!;
+
+            string blockName = block.Title;
 
             TypeMenu.Add(blockName, (player, menuOption) =>
             {
-                Instance.playerData[player.Slot].BlockType = blockName;
-
-                Instance.PrintToChat(player, $"Selected Block: {ChatColors.White}{blockName}");
+                Instance.Command_SelectBlockType(player, blockName);
 
                 TypeMenuOptions(player);
             });

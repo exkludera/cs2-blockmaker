@@ -2,9 +2,7 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
 using static CounterStrikeSharp.API.Core.Listeners;
-using static BlockMaker.Plugin;
-
-namespace BlockMaker;
+using static Plugin;
 
 public static class Menu
 {

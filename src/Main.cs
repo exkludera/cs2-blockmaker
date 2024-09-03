@@ -2,12 +2,10 @@
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Translations;
 
-namespace BlockMaker;
-
 public partial class Plugin : BasePlugin, IPluginConfig<Config>
 {
     public override string ModuleName => "Block Maker";
-    public override string ModuleVersion => "0.0.5";
+    public override string ModuleVersion => "0.0.6";
     public override string ModuleAuthor => "exkludera";
 
     public static Plugin Instance { get; set; } = new();
@@ -23,6 +21,8 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
         RegisterEvents();
 
         Commands();
+
+        Blocks.Load();
 
         Menu.Load(hotReload);
 

@@ -1,13 +1,12 @@
 ﻿using CounterStrikeSharp.API.Core;
 
-namespace BlockMaker;
-
 public static class WasdManager
 {
     public static void OpenMainMenu(CCSPlayerController? player, IWasdMenu? menu)
     {
         if (player == null)
             return;
+
         Menu.Players[player.Slot].OpenMainMenu((WasdMenu?)menu);
     }
 
@@ -15,6 +14,7 @@ public static class WasdManager
     {
         if (player == null)
             return;
+
         Menu.Players[player.Slot].OpenMainMenu(null);
     }
 
@@ -22,6 +22,7 @@ public static class WasdManager
     {
         if (player == null)
             return;
+
         Menu.Players[player.Slot].CloseSubMenu();
     }
 
@@ -29,6 +30,7 @@ public static class WasdManager
     {
         if (player == null)
             return;
+
         Menu.Players[player.Slot].CloseAllSubMenus();
     }
 
@@ -36,6 +38,7 @@ public static class WasdManager
     {
         if (player == null)
             return;
+
         Menu.Players[player.Slot].OpenSubMenu(menu);
     }
 
@@ -45,6 +48,7 @@ public static class WasdManager
         {
             Title = title
         };
+
         return menu;
     }
 }

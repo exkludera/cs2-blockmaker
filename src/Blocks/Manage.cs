@@ -1,8 +1,6 @@
 ﻿using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
 
-namespace BlockMaker;
-
 public partial class Plugin
 {
     public void DeleteBlock(CCSPlayerController player)
