@@ -5,6 +5,60 @@ using System.Drawing;
 
 public partial class Blocks
 {
+    public static void CycleRotation(CCSPlayerController player)
+    {
+        var entity = player.GetBlockAim();
+
+        if (entity == null)
+        {
+            Utils.PrintToChat(player, $"{ChatColors.Red}Could not find a block to rotate");
+            return;
+        }
+
+        if (!Entities.TryGetValue(entity, out var block))
+            return;
+
+        if (Utils.BlockLocked(player, block))
+            return;
+
+        var current = block.Entity.AbsRotation!;
+        QAngle rotation;
+        string orientation;
+
+        // Match the original BlockMaker cycle:
+        // horizontal -> standing on X -> standing on Y -> horizontal.
+        if (IsSameAngle(current.X, 0f) && IsSameAngle(current.Z, 0f))
+        {
+            rotation = new QAngle(90f, 0f, 0f);
+            orientation = "Standing X";
+        }
+        else if (IsSameAngle(current.X, 90f) && IsSameAngle(current.Z, 0f))
+        {
+            rotation = new QAngle(90f, 0f, 90f);
+            orientation = "Standing Y";
+        }
+        else
+        {
+            rotation = new QAngle(0f, 0f, 0f);
+            orientation = "Horizontal";
+        }
+
+        block.Entity.Teleport(null, rotation);
+
+        if (config.Sounds.Building.Enabled)
+            player.EmitSound(config.Sounds.Building.Rotate);
+
+        Utils.PrintToChat(player, $"Rotated Block: {ChatColors.White}{orientation}");
+    }
+
+    private static bool IsSameAngle(float angle, float expected)
+    {
+        float normalized = ((angle % 360f) + 360f) % 360f;
+        float normalizedExpected = ((expected % 360f) + 360f) % 360f;
+        float difference = MathF.Abs(normalized - normalizedExpected);
+        return MathF.Min(difference, 360f - difference) < 0.1f;
+    }
+
     public static void Position(CCSPlayerController player, string input, bool rotate)
     {
         var entity = player.GetBlockAim();
@@ -334,21 +388,43 @@ public partial class Blocks
         if (entity == null || entity.Entity == null || string.IsNullOrEmpty(entity.Entity.Name))
             return;
 
-        if (Entities.TryGetValue(entity, out var block))
-        {
-            if (Utils.BlockLocked(player, block))
-                return;
+        var effect = Building.Builders[player.Slot].BlockEffect;
+        ChangeEffect(player, entity, effect);
+    }
 
-            var BuilderData = Building.Builders[player.Slot];
-            Effect effect = BuilderData.BlockEffect;
-            Entities[entity].Effect = effect.Particle;
+    public static CBaseProp? ChangeEffect(CCSPlayerController player, CBaseProp entity, Effect effect)
+    {
+        if (!Entities.TryGetValue(entity, out var block))
+            return null;
 
-            block.Entity.Remove();
-            Entities.Remove(block.Entity);
+        if (Utils.BlockLocked(player, block))
+            return null;
 
-            CreateBlock(player, block.Type, block.Pole, block.Size, entity.AbsOrigin!, entity.AbsRotation!, block.Color, block.Transparency, block.Team, BuilderData.BlockEffect?.Particle ?? "");
+        Vector position = new(entity.AbsOrigin!.X, entity.AbsOrigin.Y, entity.AbsOrigin.Z);
+        QAngle rotation = new(entity.AbsRotation!.X, entity.AbsRotation.Y, entity.AbsRotation.Z);
+        string particle = string.IsNullOrWhiteSpace(effect.Particle) ? "None" : effect.Particle;
 
-            Utils.PrintToChat(player, $"Changed block effect to {ChatColors.White}{effect.Title}");
-        }
+        var replacement = CreateBlock(
+            player,
+            block.Type,
+            block.Pole,
+            block.Size,
+            position,
+            rotation,
+            block.Color,
+            block.Transparency,
+            block.Team,
+            particle,
+            block.Properties
+        );
+
+        if (replacement == null)
+            return null;
+
+        entity.Remove();
+        Entities.Remove(entity);
+
+        Utils.PrintToChat(player, $"Changed block effect to {ChatColors.White}{effect.Title}");
+        return replacement;
     }
 }

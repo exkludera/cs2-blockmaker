@@ -3,6 +3,9 @@ using CounterStrikeSharp.API.Modules.Utils;
 
 public static class VectorUtils
 {
+    private const float SnapActivationDistance = 10.0f;
+    private const float SnapComparisonEpsilon = 0.001f;
+
     public static (Vector position, QAngle rotation) GetEndXYZ(CCSPlayerController player, CBaseProp block, double distance = 250, bool grid = false, float gridValue = 0f, bool snapping = false, float snapValue = 0f)
     {
         if (Blocks.Entities.TryGetValue(Building.BuilderHolds[player].Entity, out var locked))
@@ -41,105 +44,145 @@ public static class VectorUtils
         Vector endPos = new((float)x, (float)y, (float)z);
         QAngle endRotation = block.AbsRotation!;
 
-        if (snapping)
+        if (snapping && TryGetSnapPosition(block, endPos, snapValue, out Vector snapPosition))
         {
-            float scale = Blocks.Entities.ContainsKey(block) ? Utils.GetSize(Blocks.Entities[block].Size) : 1;
-
-            var closestBlock = Utils.GetClosestBlock(endPos, block, scale * block.Collision.Maxs.X * 2);
-            if (closestBlock != null)
-            {
-                var snap = SnapToClosestBlock(block, closestBlock, snapValue, endPos);
-
-                endPos = snap.Position;
-                endRotation = snap.Rotation;
-            }
+            endPos = snapPosition;
         }
 
         return (endPos, endRotation);
     }
 
-    public static (Vector Position, QAngle Rotation) SnapToClosestBlock(CBaseProp block, CBaseProp closestBlock, float snapValue, Vector playerEyePos)
+    public static bool TryGetSnapPosition(CBaseProp block, Vector proposedPosition, float snapGap, out Vector snapPosition)
     {
-        Vector position = block.AbsOrigin!;
-        QAngle rotation = closestBlock.AbsRotation!;
+        snapPosition = proposedPosition;
 
-        float blockScale = Blocks.Entities.ContainsKey(block) ? Utils.GetSize(Blocks.Entities[block].Size) : 1;
-        float closestBlockScale = Blocks.Entities.ContainsKey(closestBlock) ? Utils.GetSize(Blocks.Entities[closestBlock].Size) : 1;
-        Vector blockDimensions = (block.Collision.Maxs - block.Collision.Mins) * blockScale;
-        Vector closestBlockDimensions = (closestBlock.Collision.Maxs - closestBlock.Collision.Mins) * closestBlockScale;
+        if (!Blocks.Entities.TryGetValue(block, out var heldBlock) ||
+            block.AbsRotation == null)
+            return false;
 
-        // Get the forward, right, and up vectors based on the closest block's rotation
-        Vector forward = new(
-            (float)Math.Cos(rotation.Y * Math.PI / 180) * (float)Math.Cos(rotation.X * Math.PI / 180),
-            (float)Math.Sin(rotation.Y * Math.PI / 180) * (float)Math.Cos(rotation.X * Math.PI / 180),
-            (float)-Math.Sin(rotation.X * Math.PI / 180)
-        );
-        Vector right = new(
-            (float)Math.Cos((rotation.Y + 90) * Math.PI / 180),
-            (float)Math.Sin((rotation.Y + 90) * Math.PI / 180),
-            0
-        );
-        Vector up = Cross(forward, right);
+        Vector heldHalfSize = (block.Collision.Maxs - block.Collision.Mins) * 0.5f;
+        Vector[] heldAxes = GetLocalAxes(block.AbsRotation);
 
-        // Calculate face directions
-        Vector[] faceDirections =
+        bool foundSnap = false;
+        float bestSurfaceDistance = float.MaxValue;
+        float bestMovementDistance = float.MaxValue;
+
+        foreach (var targetBlock in Blocks.Entities.Values)
         {
-            -forward,  // -X face
-            forward,   // +X face
-            -right,    // -Y face
-            right,     // +Y face
-            -up,       // -Z face
-            up         // +Z face
-        };
+            CBaseProp target = targetBlock.Entity;
 
-        // Calculate face centers for the closest block (edge positions)
-        Vector[] closestBlockFaceCenters = new Vector[6];
-        Vector[] blockFaceOffsets = new Vector[6];
+            if (target == null ||
+                !target.IsValid ||
+                target.AbsOrigin == null ||
+                target.AbsRotation == null ||
+                target.Handle == block.Handle)
+                continue;
 
-        for (int i = 0; i < 6; i++)
-        {
-            int axis = i / 2; // 0=X, 1=Y, 2=Z
-            bool isMinFace = i % 2 == 0; // Even indices are min faces (-X, -Y, -Z)
+            Vector targetHalfSize = (target.Collision.Maxs - target.Collision.Mins) * 0.5f;
+            Vector[] targetAxes = GetLocalAxes(target.AbsRotation);
+            Vector centerDelta = proposedPosition - target.AbsOrigin;
 
-            // Calculate closest block's face center (at its edge)
-            Vector closestBlockFaceCenter = closestBlock.AbsOrigin!;
-            if (axis == 0) // X axis
-                closestBlockFaceCenter += faceDirections[i] * closestBlockDimensions.X * 0.5f;
-            else if (axis == 1) // Y axis
-                closestBlockFaceCenter += faceDirections[i] * closestBlockDimensions.Y * 0.5f;
-            else // Z axis
-                closestBlockFaceCenter += faceDirections[i] * closestBlockDimensions.Z * 0.5f;
-
-            closestBlockFaceCenters[i] = closestBlockFaceCenter;
-
-            // Calculate our block's offset (placing our edge against their edge)
-            if (axis == 0) // X axis
-                blockFaceOffsets[i] = faceDirections[i] * blockDimensions.X * 0.5f;
-            else if (axis == 1) // Y axis
-                blockFaceOffsets[i] = faceDirections[i] * blockDimensions.Y * 0.5f;
-            else // Z axis
-                blockFaceOffsets[i] = faceDirections[i] * blockDimensions.Z * 0.5f;
-        }
-
-        float closestDistance = float.MaxValue;
-        int closestFace = -1;
-
-        for (int i = 0; i < closestBlockFaceCenters.Length; i++)
-        {
-            float distance = CalculateDistance(playerEyePos, closestBlockFaceCenters[i]);
-            if (distance < closestDistance)
+            for (int axisIndex = 0; axisIndex < 3; axisIndex++)
             {
-                closestDistance = distance;
-                closestFace = i;
-                position = closestBlockFaceCenters[i] + blockFaceOffsets[i];
+                for (int direction = -1; direction <= 1; direction += 2)
+                {
+                    Vector normal = targetAxes[axisIndex] * direction;
+                    float normalDistance = Dot(centerDelta, normal);
+
+                    // The opposite direction handles positions on the other side.
+                    if (normalDistance < 0)
+                        continue;
+
+                    float targetExtent = GetComponent(targetHalfSize, axisIndex);
+                    float heldExtent = ProjectedHalfExtent(heldHalfSize, heldAxes, normal);
+                    float surfaceGap = normalDistance - targetExtent - heldExtent;
+                    float surfaceDistance = Math.Abs(surfaceGap);
+
+                    if (surfaceDistance > SnapActivationDistance)
+                        continue;
+
+                    // Match the classic face traces: the held block's center must
+                    // project inside the target face rather than merely being near
+                    // the target entity's center-radius.
+                    int tangentA = (axisIndex + 1) % 3;
+                    int tangentB = (axisIndex + 2) % 3;
+                    if (Math.Abs(Dot(centerDelta, targetAxes[tangentA])) > GetComponent(targetHalfSize, tangentA) + SnapComparisonEpsilon ||
+                        Math.Abs(Dot(centerDelta, targetAxes[tangentB])) > GetComponent(targetHalfSize, tangentB) + SnapComparisonEpsilon)
+                        continue;
+
+                    Vector candidatePosition =
+                        target.AbsOrigin +
+                        normal * (targetExtent + heldExtent + snapGap);
+                    float movementDistance = CalculateDistance(proposedPosition, candidatePosition);
+
+                    bool isBetterSurface =
+                        surfaceDistance < bestSurfaceDistance - SnapComparisonEpsilon;
+                    bool isSameSurfaceButCloser =
+                        Math.Abs(surfaceDistance - bestSurfaceDistance) <= SnapComparisonEpsilon &&
+                        movementDistance < bestMovementDistance;
+
+                    if (!isBetterSurface && !isSameSurfaceButCloser)
+                        continue;
+
+                    foundSnap = true;
+                    bestSurfaceDistance = surfaceDistance;
+                    bestMovementDistance = movementDistance;
+                    snapPosition = candidatePosition;
+                }
             }
         }
 
-        // Apply additional snap value if needed (for gap between blocks)
-        if (closestFace != -1 && snapValue != 0)
-            position += faceDirections[closestFace] * snapValue;
+        return foundSnap;
+    }
 
-        return (position, rotation);
+    private static Vector[] GetLocalAxes(QAngle rotation)
+    {
+        double pitch = rotation.X * Math.PI / 180.0;
+        double yaw = rotation.Y * Math.PI / 180.0;
+        double roll = rotation.Z * Math.PI / 180.0;
+
+        double sinPitch = Math.Sin(pitch);
+        double cosPitch = Math.Cos(pitch);
+        double sinYaw = Math.Sin(yaw);
+        double cosYaw = Math.Cos(yaw);
+        double sinRoll = Math.Sin(roll);
+        double cosRoll = Math.Cos(roll);
+
+        Vector forward = new(
+            (float)(cosPitch * cosYaw),
+            (float)(cosPitch * sinYaw),
+            (float)-sinPitch
+        );
+        Vector right = new(
+            (float)(-sinRoll * sinPitch * cosYaw + cosRoll * sinYaw),
+            (float)(-sinRoll * sinPitch * sinYaw - cosRoll * cosYaw),
+            (float)(-sinRoll * cosPitch)
+        );
+        Vector up = new(
+            (float)(cosRoll * sinPitch * cosYaw + sinRoll * sinYaw),
+            (float)(cosRoll * sinPitch * sinYaw - sinRoll * cosYaw),
+            (float)(cosRoll * cosPitch)
+        );
+
+        return [forward, right, up];
+    }
+
+    private static float ProjectedHalfExtent(Vector halfSize, Vector[] axes, Vector direction)
+    {
+        return
+            Math.Abs(Dot(direction, axes[0])) * halfSize.X +
+            Math.Abs(Dot(direction, axes[1])) * halfSize.Y +
+            Math.Abs(Dot(direction, axes[2])) * halfSize.Z;
+    }
+
+    private static float GetComponent(Vector vector, int axis)
+    {
+        return axis switch
+        {
+            0 => vector.X,
+            1 => vector.Y,
+            _ => vector.Z
+        };
     }
 
     public static Vector Cross(Vector a, Vector b)
@@ -173,7 +216,7 @@ public static class VectorUtils
     public static bool CheckOnTop(Blocks.Data block, CCSPlayerPawn pawn)
     {
         Vector playerMaxs = pawn.Collision.Maxs * 2;
-        Vector blockMaxs = block.Entity.Collision.Maxs * Utils.GetSize(block.Size) * 2;
+        Vector blockMaxs = block.Entity.Collision.Maxs * 2;
 
         Vector blockOrigin = block.Entity.AbsOrigin!;
         Vector pawnOrigin = pawn.AbsOrigin!;

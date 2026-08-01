@@ -28,7 +28,7 @@ public partial class Menu
 
         Menu.AddItem($"Blocks", (player, option) =>
         {
-            Menu_Commands(player, menuType, Menu);
+            Server.NextFrame(() => NumericBlockMenu.Open(player));
         });
 
         Menu.AddItem("Teleports", (player, option) =>
@@ -76,9 +76,8 @@ public partial class Menu
 
         Menu.AddItem("Rotate", (player, option) =>
         {
-            string[] options = { "Reset", "X-", "X+", "Y-", "Y+", "Z-", "Z+" };
-
-            PositionMenuOptions(player, menuType, Parent, options, true);
+            Commands.CycleBlockRotation(player);
+            Menu_Commands(player, menuType, Parent);
         });
 
         Menu.AddItem("Move", (player, option) =>

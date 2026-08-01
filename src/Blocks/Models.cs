@@ -9,6 +9,56 @@ public partial class Blocks
         public string Title { get; set; } = "";
         public string Block { get; set; } = "";
         public string Pole { get; set; } = "";
+        public bool UseSizeModels { get; set; } = true;
+        public Dictionary<string, string> SizeModels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public string GetModel(bool pole, string size)
+        {
+            if (pole)
+                return Pole;
+
+            var configured = SizeModels.FirstOrDefault(
+                entry => entry.Key.Equals(size, StringComparison.OrdinalIgnoreCase)).Value;
+
+            if (!string.IsNullOrWhiteSpace(configured))
+                return configured;
+
+            if (!UseSizeModels || string.IsNullOrWhiteSpace(Block))
+                return Block;
+
+            string suffix = NormalizeSize(size) switch
+            {
+                "small" => "_small",
+                "large" => "_large",
+                "xlarge" => "_xlarge",
+                _ => ""
+            };
+
+            if (suffix.Length == 0)
+                return Block;
+
+            string extension = Path.GetExtension(Block);
+            return $"{Block[..^extension.Length]}{suffix}{extension}";
+        }
+
+        public IEnumerable<string> GetModels()
+        {
+            yield return Block;
+            yield return Pole;
+
+            if (UseSizeModels)
+            {
+                yield return GetModel(false, "Small");
+                yield return GetModel(false, "Large");
+                yield return GetModel(false, "X-Large");
+            }
+
+            foreach (string model in SizeModels.Values)
+                yield return model;
+        }
+
+        private static string NormalizeSize(string size) =>
+            new(size.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
     }
 
     public class BlockSize
@@ -94,7 +144,7 @@ public partial class Blocks
                         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
                     };
 
-                    string jsonContent = JsonSerializer.Serialize(Entities, options);
+                    string jsonContent = JsonSerializer.Serialize(new Models(), options);
 
                     File.WriteAllText(modelsPath, jsonContent);
                 }
@@ -113,6 +163,11 @@ public partial class Blocks
     public class CustomBlockModel : BlockModel
     {
         public string[] Command { get; set; } = ["css_example {NAME} {STEAMID} {STEAMID64} {USERID} {SLOT}", "css_yourcommand {STEAMID64} 1"];
+
+        public CustomBlockModel()
+        {
+            UseSizeModels = false;
+        }
     }
 
     public class BlockPlatform : BlockModel

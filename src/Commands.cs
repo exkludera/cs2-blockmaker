@@ -188,9 +188,7 @@ public static class Commands
         if (player == null || !AllowedCommand(player))
             return;
 
-        if (!Utils.BuildMode(player))
-            return;
-
+        Building.EnsureBuilder(player);
         Menu.Open(player, "Block Maker");
     }
 
@@ -275,6 +273,14 @@ public static class Commands
             return;
 
         Blocks.Position(player, rotation, true);
+    }
+
+    public static void CycleBlockRotation(CCSPlayerController? player)
+    {
+        if (player == null || !AllowedCommand(player))
+            return;
+
+        Blocks.CycleRotation(player);
     }
 
     public static void PositionBlock(CCSPlayerController? player, string position)

@@ -7,7 +7,7 @@ using RayTraceAPI;
 public partial class Plugin : BasePlugin, IPluginConfig<Config>
 {
     public override string ModuleName => "Block Maker";
-    public override string ModuleVersion => "0.2.6";
+    public override string ModuleVersion => "0.2.7";
     public override string ModuleAuthor => "exkludera";
 
     public static Plugin Instance = new();
@@ -26,10 +26,13 @@ public partial class Plugin : BasePlugin, IPluginConfig<Config>
 
         if (hotReload)
         {
-            foreach (var player in Utilities.GetPlayers())
+            if (Building.BuildMode)
             {
-                if (Utils.HasPermission(player) || Files.Builders.steamids.Contains(player.SteamID.ToString()))
-                    Building.Builders[player.Slot] = new Building.BuilderData { BlockType = Blocks.Models.Data.Platform.Title };
+                foreach (var player in Utilities.GetPlayers())
+                {
+                    if (Utils.HasPermission(player) || Files.Builders.steamids.Contains(player.SteamID.ToString()))
+                        Building.EnsureBuilder(player);
+                }
             }
 
             Files.mapsFolder = Path.Combine(ModuleDirectory, "maps", Server.MapName);

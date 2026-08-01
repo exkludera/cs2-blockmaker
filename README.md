@@ -21,7 +21,9 @@
 
 > block managing can be done within the building menu /bm or commands
 >
-> hold USE button to grab block, look around to move, left and right click to change distance
+> hold USE to grab a block and look around to move it; JUMP brings it closer and DUCK moves it farther away
+>
+> while holding a block, MOUSE1 duplicates it and transfers the hold to the duplicate; MOUSE2 deletes it
 >
 > hold RELOAD button and move your mouse to rotate the block
 
@@ -76,7 +78,7 @@
       "CamouflageCT": "characters/models/tm_leet/tm_leet_variantb.vmdl",
       "FireParticle": "particles/burning_fx/env_fire_medium.vpcf",
       "Sizes": [
-        { "Title": "Small", "Size": 0.5 },
+        { "Title": "Small", "Size": 0.25 },
         { "Title": "Normal", "Size": 1 },
         { "Title": "Large", "Size": 2 },
         { "Title": "X-Large", "Size": 3 }
@@ -157,6 +159,45 @@
 }
 ```
 </details>
+
+## Compiled block sizes
+
+Block sizes now use separate compiled models with matching render and physics
+meshes. The built-in model naming convention is:
+
+The Small, Normal, Large, and Pole dimensions follow iGz's BlockMaker for
+Counter-Strike 1.6. X-Large remains an additional CS2-only size.
+
+| Menu size | Model suffix | Dimensions |
+| --- | --- | --- |
+| Small | `block_small.vmdl` | 16 × 16 × 8 |
+| Normal | `block.vmdl` | 64 × 64 × 8 |
+| Large | `block_large.vmdl` | 128 × 128 × 8 |
+| X-Large | `block_xlarge.vmdl` | 192 × 192 × 8 |
+| Pole | `pole.vmdl` | 64 × 8 × 8 |
+
+The plugin does not call `SetScale`; the dimensions are baked into each
+compiled model. The uncompiled source pack and generator are in
+`tools/blockmaker-original-models` at the workspace root.
+
+Built-in entries derive the size-specific paths from `Block`. For a custom
+entry, `UseSizeModels` defaults to `false`. Custom models can provide explicit
+paths with a `SizeModels` object:
+
+```json
+{
+  "Title": "Example",
+  "Block": "models/custom/example/block.vmdl",
+  "Pole": "models/custom/example/pole.vmdl",
+  "UseSizeModels": false,
+  "SizeModels": {
+    "Small": "models/custom/example/my_small.vmdl",
+    "Large": "models/custom/example/my_large.vmdl",
+    "X-Large": "models/custom/example/my_xlarge.vmdl"
+  }
+}
+```
+
 <details> <summary>models.json</summary>
   
 ```json
@@ -324,7 +365,7 @@
   },
   "Health": {
     "Cooldown": 0.75,
-    "Value": 8,
+    "Value": 1,
     "Duration": 0,
     "OnTop": true,
     "Locked": false,
@@ -364,7 +405,7 @@
   },
   "Fire": {
     "Cooldown": 5,
-    "Value": 8,
+    "Value": 1,
     "Duration": 5,
     "OnTop": true,
     "Locked": false,
@@ -380,7 +421,7 @@
   },
   "Damage": {
     "Cooldown": 0.75,
-    "Value": 8,
+    "Value": 5,
     "Duration": 0,
     "OnTop": true,
     "Locked": false,
@@ -454,13 +495,13 @@
     "Cooldown": 0,
     "Value": 0,
     "Duration": 0,
-    "OnTop": false,
+    "OnTop": true,
     "Locked": false,
     "Builder": ""
   },
   "Honey": {
     "Cooldown": 0,
-    "Value": 0.3,
+    "Value": 0.2,
     "Duration": 0,
     "OnTop": true,
     "Locked": false,

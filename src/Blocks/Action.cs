@@ -106,6 +106,85 @@ public partial class Blocks
 
     public static Dictionary<int, List<CBaseProp>> PlayerCooldowns = new();
     public static Dictionary<int, List<Timer>> CooldownsTimers = new();
+    private const float TrampolineCooldownSeconds = 0.5f;
+    private const float HoneyContactGraceSeconds = 0.1f;
+    private const float MovementModifierTolerance = 0.0001f;
+    private static readonly Dictionary<int, float> TrampolineCooldowns = new();
+    private static readonly Dictionary<uint, HoneyEffectState> HoneyEffects = new();
+
+    private sealed class HoneyEffectState
+    {
+        public required ulong SteamId { get; init; }
+        public required int Slot { get; init; }
+        public required uint PawnIndex { get; init; }
+        public required float OriginalVelocityModifier { get; init; }
+        public required float AppliedVelocityModifier { get; set; }
+        public required float ExpiresAt { get; set; }
+    }
+
+    public static void UpdateHoneyEffects()
+    {
+        if (HoneyEffects.Count == 0)
+            return;
+
+        foreach (var state in HoneyEffects.Values.ToArray())
+        {
+            var player = FindHoneyPlayer(state);
+            if (player == null)
+            {
+                HoneyEffects.Remove(state.PawnIndex);
+                continue;
+            }
+
+            if (Server.CurrentTime >= state.ExpiresAt)
+                ClearHoneyEffect(state.PawnIndex, true);
+        }
+    }
+
+    public static void ClearMovementEffectsForSlot(int slot, bool restoreHoney)
+    {
+        TrampolineCooldowns.Remove(slot);
+
+        foreach (var state in HoneyEffects.Values.Where(state => state.Slot == slot).ToArray())
+            ClearHoneyEffect(state.PawnIndex, restoreHoney);
+    }
+
+    public static void ClearMovementEffects(bool restoreHoney)
+    {
+        TrampolineCooldowns.Clear();
+
+        foreach (var pawnIndex in HoneyEffects.Keys.ToArray())
+            ClearHoneyEffect(pawnIndex, restoreHoney);
+
+        HoneyEffects.Clear();
+    }
+
+    private static void ClearHoneyEffect(uint pawnIndex, bool restore)
+    {
+        if (!HoneyEffects.Remove(pawnIndex, out var state) || !restore)
+            return;
+
+        var player = FindHoneyPlayer(state);
+        var pawn = player?.PlayerPawn.Value;
+        if (pawn == null || !pawn.IsValid)
+            return;
+
+        // Do not overwrite a newer movement effect applied by another block/plugin.
+        if (Math.Abs(pawn.VelocityModifier - state.AppliedVelocityModifier) > MovementModifierTolerance)
+            return;
+
+        pawn.VelocityModifier = state.OriginalVelocityModifier;
+        Utilities.SetStateChanged(pawn, "CCSPlayerPawn", "m_flVelocityModifier");
+    }
+
+    private static CCSPlayerController? FindHoneyPlayer(HoneyEffectState state) =>
+        Utilities.GetPlayers().FirstOrDefault(player =>
+            player is { IsValid: true } &&
+            player.Slot == state.Slot &&
+            player.PlayerPawn.Value is { IsValid: true } pawn &&
+            pawn.Index == state.PawnIndex &&
+            (state.SteamId == 0 || player.SteamID == state.SteamId));
+
     private static void BlockCooldownTimer(CCSPlayerController player, CBaseProp block, float timer = 0, bool message = false)
     {
         if (timer <= 0 || block == null || block.Entity == null)
@@ -217,8 +296,6 @@ public partial class Blocks
         Vector position = new Vector(block.AbsOrigin!.X, block.AbsOrigin.Y, block.AbsOrigin.Z);
         QAngle rotation = new QAngle(block.AbsRotation!.X, block.AbsRotation.Y, block.AbsRotation.Z);
         string model = block.CBodyComponent!.SceneNode!.GetSkeletonInstance().ModelState.ModelName;
-        string size = Utils.GetSize(data.Size).ToString();
-
         instance.AddTimer(duration, () =>
         {
             if (block != null && block.IsValid)
@@ -236,7 +313,6 @@ public partial class Blocks
                 tempBlock.Render = Color.FromArgb(alpha / 2, clr.R, clr.G, clr.B);
                 Utilities.SetStateChanged(tempBlock, "CBaseModelEntity", "m_clrRender");
 
-                tempBlock.AcceptInput("SetScale", tempBlock, tempBlock, size);
                 tempBlock.AcceptInput("DisableMotion");
                 tempBlock.CollisionRulesChanged(CollisionGroup.COLLISION_GROUP_TRIGGER);
             }
@@ -595,24 +671,59 @@ public partial class Blocks
         var pawn = player.Pawn();
         if (pawn == null) return;
 
-        var block = data.Entity;
         var settings = data.Properties;
+        var now = Server.CurrentTime;
 
+        if (TrampolineCooldowns.TryGetValue(player.Slot, out var cooldownUntil) && now < cooldownUntil)
+            return;
+
+        TrampolineCooldowns[player.Slot] = now + TrampolineCooldownSeconds;
         pawn.AbsVelocity.Z = settings.Value;
-
         pawn.Teleport(null, null, pawn.AbsVelocity);
-
-        BlockCooldownTimer(player, block);
     }
 
     private static void Action_Honey(CCSPlayerController player, Data data)
     {
-        var block = data.Entity;
+        var pawn = player.Pawn();
+        if (pawn == null) return;
+
         var settings = data.Properties;
+        var now = Server.CurrentTime;
+        var appliedModifier = settings.Value;
 
-        player.SetVelocity(settings.Value);
+        if (!HoneyEffects.TryGetValue(pawn.Index, out var state) ||
+            state.Slot != player.Slot ||
+            (state.SteamId != 0 && state.SteamId != player.SteamID))
+        {
+            if (state != null)
+                HoneyEffects.Remove(pawn.Index);
 
-        BlockCooldownTimer(player, block);
+            var slowedVelocity = new Vector(
+                pawn.AbsVelocity.X * 0.5f,
+                pawn.AbsVelocity.Y * 0.5f,
+                pawn.AbsVelocity.Z
+            );
+            pawn.Teleport(null, null, slowedVelocity);
+
+            state = new HoneyEffectState
+            {
+                SteamId = player.SteamID,
+                Slot = player.Slot,
+                PawnIndex = pawn.Index,
+                OriginalVelocityModifier = pawn.VelocityModifier,
+                AppliedVelocityModifier = appliedModifier,
+                ExpiresAt = now + HoneyContactGraceSeconds
+            };
+            HoneyEffects[pawn.Index] = state;
+        }
+        else
+        {
+            state.AppliedVelocityModifier = appliedModifier;
+            state.ExpiresAt = now + HoneyContactGraceSeconds;
+        }
+
+        pawn.VelocityModifier = appliedModifier;
+        Utilities.SetStateChanged(pawn, "CCSPlayerPawn", "m_flVelocityModifier");
     }
 
     private static void Action_Barrier(CCSPlayerController player, Data data)

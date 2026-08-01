@@ -13,8 +13,11 @@ public static class Events
     public static void Register()
     {
         Instance.RegisterListener<Listeners.OnTick>(Building.OnTick);
+        Instance.RegisterListener<Listeners.OnTick>(NumericBlockMenu.OnTick);
+        Instance.RegisterListener<Listeners.OnTick>(Blocks.UpdateHoneyEffects);
         Instance.RegisterListener<Listeners.OnMapStart>(OnMapStart);
         Instance.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
+        Instance.RegisterListener<Listeners.OnClientDisconnectPost>(OnClientDisconnectPost);
         Instance.RegisterListener<Listeners.OnServerPrecacheResources>(OnServerPrecacheResources);
         Instance.RegisterListener<Listeners.OnPlayerTakeDamagePre>(OnPlayerTakeDamagePre);
 
@@ -34,8 +37,11 @@ public static class Events
     public static void Deregister()
     {
         Instance.RemoveListener<Listeners.OnTick>(Building.OnTick);
+        Instance.RemoveListener<Listeners.OnTick>(NumericBlockMenu.OnTick);
+        Instance.RemoveListener<Listeners.OnTick>(Blocks.UpdateHoneyEffects);
         Instance.RemoveListener<Listeners.OnMapStart>(OnMapStart);
         Instance.RemoveListener<Listeners.OnMapEnd>(OnMapEnd);
+        Instance.RemoveListener<Listeners.OnClientDisconnectPost>(OnClientDisconnectPost);
         Instance.RemoveListener<Listeners.OnServerPrecacheResources>(OnServerPrecacheResources);
         Instance.RemoveListener<Listeners.OnPlayerTakeDamagePre>(OnPlayerTakeDamagePre);
 
@@ -89,6 +95,11 @@ public static class Events
         Utils.Clear();
     }
 
+    private static void OnClientDisconnectPost(int slot)
+    {
+        Blocks.ClearMovementEffectsForSlot(slot, false);
+    }
+
     private static void OnServerPrecacheResources(ResourceManifest manifest)
     {
         List<string> resources =
@@ -107,8 +118,7 @@ public static class Events
 
         foreach (var model in Blocks.Models.Data.GetAllBlocks())
         {
-            resources.Add(model.Block);
-            resources.Add(model.Pole);
+            resources.AddRange(model.GetModels());
         }
 
         foreach (var resource in resources)
@@ -130,7 +140,7 @@ public static class Events
             Files.Builders.Load();
 
             if (Utils.HasPermission(player) || Files.Builders.steamids.Contains(player.SteamID.ToString()))
-                Building.Builders[player.Slot] = new Building.BuilderData { BlockType = Blocks.Models.Data.Platform.Title };
+                Building.EnsureBuilder(player);
         }
 
         return HookResult.Continue;
@@ -146,7 +156,11 @@ public static class Events
 
     private static HookResult EventRoundEnd(EventRoundEnd @event, GameEventInfo info)
     {
-        if (Building.BuildMode && Config.Settings.Building.AutoSave.Enable)
+        // Round changes recreate BlockMaker's runtime entities. Always snapshot the
+        // complete layout first so the next round restores the exact current state.
+        // The AutoSave setting controls only the periodic timer; round persistence
+        // must never depend on it.
+        if (Building.BuildMode)
             Files.EntitiesData.Save();
 
         return HookResult.Continue;
@@ -172,6 +186,8 @@ public static class Events
 
         if (Blocks.HiddenPlayers.TryGetValue(player, out var hiddenPlayer))
             Blocks.HiddenPlayers.Remove(player);
+
+        Blocks.ClearMovementEffectsForSlot(player.Slot, false);
 
         return HookResult.Continue;
     }
@@ -251,7 +267,7 @@ public static class Events
                 return HookResult.Continue;
 
             Vector playerMaxs = pawn.Collision.Maxs * 2;
-            Vector blockMaxs = block.Collision!.Maxs * Utils.GetSize(blocktarget.Value.Size) * 2;
+            Vector blockMaxs = block.Collision!.Maxs * 2;
 
             if (VectorUtils.IsWithinBounds(block.AbsOrigin, pawn.AbsOrigin, blockMaxs, playerMaxs))
             {

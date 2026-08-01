@@ -172,11 +172,11 @@ public static class EntityExtends
 
         pawn.Health = newHealth;
         Utilities.SetStateChanged(pawn, "CBaseEntity", "m_iHealth");
-        player.ColorScreen(Color.FromArgb(100, 255, 0, 0), 0.25f, 0.5f, FadeFlags.FADE_OUT);
+        if (hp < 0)
+            player.ColorScreen(Color.FromArgb(100, 255, 0, 0), 0.25f, 0.5f, FadeFlags.FADE_OUT);
 
-        var sounds = Plugin.Instance.Config.Sounds.Blocks;
-        if (hp > 0) player.EmitSound(sounds.Health);
-        else if (hp < 0) player.EmitSound(sounds.Damage);
+        if (hp < 0)
+            player.EmitSound(Plugin.Instance.Config.Sounds.Blocks.Damage);
 
         if (pawn.Health <= 0)
             pawn.CommitSuicide(true, true);

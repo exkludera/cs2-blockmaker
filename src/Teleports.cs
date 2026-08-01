@@ -3,9 +3,12 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Entities.Constants;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
+using RayTraceAPI;
 
 public static class Teleports
 {
+    private const float TeleportPlacementZOffset = 36.0f;
+
     public class Data
     {
         public Data
@@ -55,10 +58,34 @@ public static class Teleports
 
     public static void Create(CCSPlayerController player)
     {
-        var BuilderData = Building.Builders[player.Slot];
-        var playerPawn = player.PlayerPawn.Value!;
-        var position = new Vector(playerPawn.AbsOrigin!.X, playerPawn.AbsOrigin.Y, playerPawn.AbsOrigin.Z + playerPawn.Collision.Maxs.Z / 2);
-        var rotation = playerPawn.AbsRotation!;
+        var playerPawn = player.PlayerPawn.Value;
+        if (playerPawn == null || !playerPawn.IsValid || playerPawn.AbsOrigin == null || playerPawn.EyeAngles == null)
+            return;
+
+        var rayTrace = Plugin.RayTraceInterface.Get();
+        if (rayTrace == null)
+        {
+            Utils.PrintToChat(player, $"{ChatColors.Red}Could not access ray tracing to create teleport");
+            return;
+        }
+
+        var eyePosition = new Vector(
+            playerPawn.AbsOrigin.X,
+            playerPawn.AbsOrigin.Y,
+            playerPawn.AbsOrigin.Z + playerPawn.ViewOffset.Z
+        );
+
+        TraceOptions options = new();
+        if (rayTrace.TraceShape(eyePosition, playerPawn.EyeAngles, playerPawn, options, out TraceResult result) && !result.DidHit)
+        {
+            Utils.PrintToChat(player, $"{ChatColors.Red}Could not find a valid location to create teleport");
+            return;
+        }
+
+        // Match Necro's CS 1.6 BlockMaker placement: create at the point
+        // the admin is aiming at, then raise the teleporter by 36 units.
+        var position = new Vector(result.EndPos.X, result.EndPos.Y, result.EndPos.Z + TeleportPlacementZOffset);
+        var rotation = playerPawn.AbsRotation ?? new QAngle();
 
         if (!isNext.ContainsKey(player))
             isNext.Add(player, false);
@@ -191,21 +218,42 @@ public static class Teleports
         caller.EmitSound(Config.Sounds.Blocks.Teleport);
 
         var exitEntity = teleport.Exit.Entity;
-        var exitPosition = exitEntity.AbsOrigin;
-        var exitVelocity = Config.Settings.Teleports.Velocity > 0
-            ? new Vector(activator.AbsVelocity.X, activator.AbsVelocity.Y, Config.Settings.Teleports.Velocity)
-            : activator.AbsVelocity;
+        if (exitEntity.AbsOrigin == null || activator.AbsVelocity == null)
+            return;
+
+        var exitPosition = new Vector(exitEntity.AbsOrigin.X, exitEntity.AbsOrigin.Y, exitEntity.AbsOrigin.Z);
+        // Match the original CS 1.6 BlockMaker: preserve horizontal momentum
+        // and turn downward vertical momentum into upward momentum.
+        var entryVelocity = new Vector(
+            activator.AbsVelocity.X,
+            activator.AbsVelocity.Y,
+            Math.Abs(activator.AbsVelocity.Z)
+        );
 
         if (activator.DesignerName == "player")
         {
             var pawn = activator.As<CCSPlayerPawn>();
             if (pawn == null || !pawn.IsValid) return;
 
-            var angles = Config.Settings.Teleports.ForceAngles
-                ? exitEntity.AbsRotation ?? pawn.EyeAngles
-                : pawn.EyeAngles;
+            // Teleports are placed at the creator's mid-height. Convert the saved
+            // model origin back to a player foot position to avoid hull overlap.
+            float halfHeight = pawn.Collision.Maxs.Z / 2;
+            var playerExitPosition = new Vector(exitPosition.X, exitPosition.Y, exitPosition.Z - halfHeight);
 
-            pawn.Teleport(exitPosition, angles, exitVelocity);
+            // EyeAngles are camera angles and must not be applied as the pawn's
+            // physical world rotation. Preserve body rotation unless explicitly
+            // configured to use the exit portal's yaw.
+            QAngle? bodyAngles = null;
+            if (Config.Settings.Teleports.ForceAngles && exitEntity.AbsRotation != null)
+            {
+                bodyAngles = new QAngle(0, exitEntity.AbsRotation.Y, 0);
+            }
+            else if (pawn.AbsRotation != null)
+            {
+                bodyAngles = new QAngle(pawn.AbsRotation.X, pawn.AbsRotation.Y, pawn.AbsRotation.Z);
+            }
+
+            pawn.Teleport(playerExitPosition, bodyAngles, entryVelocity);
             exitEntity.EmitSound(Config.Sounds.Blocks.Teleport);
         }
         else
@@ -216,7 +264,7 @@ public static class Teleports
             activator.Teleport(
                 exitPosition,
                 Config.Settings.Teleports.ForceAngles ? exitEntity.AbsRotation : null,
-                exitVelocity
+                entryVelocity
             );
             exitEntity.EmitSound(Config.Sounds.Blocks.Teleport);
         }

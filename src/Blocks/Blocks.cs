@@ -117,7 +117,7 @@ public partial class Blocks
     }
 
     public static Dictionary<CBaseEntity, Data> Entities = new();
-    public static void CreateBlock(
+    public static CBaseProp? CreateBlock(
         CCSPlayerController? player,
         string type,
         bool pole,
@@ -131,6 +131,17 @@ public partial class Blocks
         Property? properties = null
     )
     {
+        string model = Utils.GetModelFromSelectedBlock(type, pole, size);
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            Utils.Log($"Block creation aborted: no valid model is configured for block type '{type}' (pole: {pole}).");
+
+            if (player != null)
+                Utils.PrintToChat(player, $"{ChatColors.Red}No valid model is configured for block type '{type}'");
+
+            return null;
+        }
+
         var block = Utilities.CreateEntityByName<CPhysicsPropOverride>("prop_physics_override");
 
         if (block != null && block.IsValid && block.Entity != null)
@@ -140,12 +151,10 @@ public partial class Blocks
             block.CBodyComponent!.SceneNode!.Owner!.Entity!.Flags &= ~(uint)(1 << 2);
             block.ShadowStrength = config.Settings.Blocks.DisableShadows ? 0.0f : 1.0f;
 
-            string model = Utils.GetModelFromSelectedBlock(type, pole);
             block.SetModel(model);
 
             block.Teleport(position, rotation);
             block.DispatchSpawn();
-            block.AcceptInput("SetScale", block, block, Utils.GetSize(size).ToString());
             block.AcceptInput("DisableMotion");
 
             var clr = Utils.GetColor(color);
@@ -186,7 +195,11 @@ public partial class Blocks
             }
 
             Entities[block] = new Data(block, type, pole, size, color, transparency, team, effect, properties);
+            return block;
         }
+
+        Utils.Log($"Failed to create the block entity for type '{type}'.");
+        return null;
     }
 
     public static void Delete(CCSPlayerController player, bool all = false)
@@ -251,14 +264,14 @@ public partial class Blocks
         public static readonly Dictionary<string, Property> BlockDefaultProperties = new()
         {
             { Models.Data.Bhop.Title, new Property { Duration = 0.25f, Cooldown = 1.0f } },
-            { Models.Data.Health.Title, new Property { Value = 4.0f, Cooldown = 0.75f } },
+            { Models.Data.Health.Title, new Property { Value = 1.0f, Cooldown = 0.75f } },
             { Models.Data.Grenade.Title, new Property { Cooldown = 60.0f } },
             { Models.Data.Gravity.Title, new Property { Duration = 4.0f, Value = 0.4f, Cooldown = 5.0f } },
             { Models.Data.Frost.Title, new Property { Cooldown = 60.0f } },
             { Models.Data.Flash.Title, new Property { Cooldown = 60.0f } },
-            { Models.Data.Fire.Title, new Property { Duration = 5.0f, Value = 8.0f, Cooldown = 5.0f } },
+            { Models.Data.Fire.Title, new Property { Duration = 5.0f, Value = 1.0f, Cooldown = 5.0f } },
             { Models.Data.Delay.Title, new Property { Duration = 1.0f, Cooldown = 1.5f } },
-            { Models.Data.Damage.Title, new Property { Value = 8.0f, Cooldown = 0.75f } },
+            { Models.Data.Damage.Title, new Property { Value = 5.0f, Cooldown = 0.75f } },
             { Models.Data.Stealth.Title, new Property { Duration = 7.5f, Cooldown = 60.0f } },
             { Models.Data.Speed.Title, new Property { Duration = 3.0f, Value = 2.0f, Cooldown = 60.0f } },
             { Models.Data.SpeedBoost.Title, new Property { Duration = 300.0f, Value = 650.0f } },
@@ -267,8 +280,8 @@ public partial class Blocks
             { Models.Data.Random.Title, new Property { Cooldown = 60f } },
             { Models.Data.Invincibility.Title, new Property { Duration = 5.0f, Cooldown = 60.0f } },
             { Models.Data.Trampoline.Title, new Property { Value = 500.0f } },
-            { Models.Data.Death.Title, new Property { OnTop = false } },
-            { Models.Data.Honey.Title, new Property { Value = 0.3f } },
+            { Models.Data.Death.Title, new Property { OnTop = true } },
+            { Models.Data.Honey.Title, new Property { Value = 0.2f } },
             { Models.Data.Platform.Title, new Property() },
             { Models.Data.NoFallDmg.Title, new Property { OnTop = false } },
             { Models.Data.Ice.Title, new Property() },

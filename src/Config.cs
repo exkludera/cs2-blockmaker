@@ -46,7 +46,7 @@ public class Config_Settings
         public string FireParticle { get; set; } = "particles/burning_fx/env_fire_medium.vpcf";
         public List<Blocks.BlockSize> Sizes { get; set; } = new()
         {
-            new("Small", 0.5f),
+            new("Small", 0.25f),
             new("Normal", 1.0f),
             new("Large", 2.0f),
             new("X-Large", 3.0f)

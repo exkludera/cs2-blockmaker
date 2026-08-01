@@ -4,6 +4,7 @@ using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Memory;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Logging;
+using RayTraceAPI;
 using System.Drawing;
 using System.Text.Json;
 
@@ -109,7 +110,7 @@ public static class Utils
         }
     }
 
-    public static string GetModelFromSelectedBlock(string blockType, bool pole)
+    public static string GetModelFromSelectedBlock(string blockType, bool pole, string size)
     {
         int hyphenIndex = blockType.IndexOf('.');
         if (hyphenIndex >= 0)
@@ -119,27 +120,55 @@ public static class Utils
         foreach (var model in blockModels.GetAllBlocks())
         {
             if (model.Title.Equals(blockType, StringComparison.OrdinalIgnoreCase))
-                return pole ? model.Pole : model.Block;
+            {
+                string selectedModel = model.GetModel(pole, size);
+
+                if (!string.IsNullOrWhiteSpace(selectedModel))
+                    return selectedModel;
+
+                if (pole && !string.IsNullOrWhiteSpace(model.Block))
+                {
+                    Log($"No pole model is configured for block type '{blockType}'; using its normal model.");
+                    return model.Block;
+                }
+
+                Log($"No model is configured for block type '{blockType}'.");
+                return string.Empty;
+            }
         }
 
+        Log($"Could not find a configured model for block type '{blockType}'.");
         return string.Empty;
     }
 
     public static CBaseProp? GetBlockAim(this CCSPlayerController player)
     {
-        var GameRules = Utilities.FindAllEntitiesByDesignerName<CCSGameRulesProxy>("cs_gamerules").FirstOrDefault()?.GameRules;
-
-        if (GameRules is null)
+        var pawn = player.Pawn();
+        if (pawn == null || !pawn.IsValid || pawn.AbsOrigin == null || pawn.EyeAngles == null)
             return null;
 
-        VirtualFunctionWithReturn<CCSGameRules, CBasePlayerController, nint, CBaseEntity?> CCSGameRules_FindPickerEntity = new(GameRules.Handle, GameData.GetOffset("CCSGameRules_FindPickerEntity"));
-        CBaseEntity? entity = CCSGameRules_FindPickerEntity.Invoke(GameRules, player, nint.Zero);
+        var rayTrace = Plugin.RayTraceInterface.Get();
+        if (rayTrace == null)
+            return null;
 
-        if (entity != null &&
-            entity.IsValid &&
+        var eyePosition = new Vector(
+            pawn.AbsOrigin.X,
+            pawn.AbsOrigin.Y,
+            pawn.AbsOrigin.Z + pawn.ViewOffset.Z
+        );
+
+        TraceOptions options = new();
+        rayTrace.TraceShape(eyePosition, pawn.EyeAngles, pawn, options, out TraceResult result);
+
+        if (!result.DidHit || result.HitEntity == nint.Zero)
+            return null;
+
+        CBaseEntity entity = new(result.HitEntity);
+
+        if (entity.IsValid &&
             entity.Entity != null &&
-            entity.DesignerName.Contains("prop_physics_override") &&
-            entity.Entity.Name.StartsWith("blockmaker")
+            entity.DesignerName.Equals("prop_physics_override", StringComparison.OrdinalIgnoreCase) &&
+            entity.Entity.Name.StartsWith("blockmaker", StringComparison.OrdinalIgnoreCase)
         )
             return entity.As<CBaseProp>();
 
@@ -149,17 +178,24 @@ public static class Utils
     public static CBaseProp? GetClosestBlock(Vector endPos, CBaseProp excludeBlock, double threshold)
     {
         CBaseProp? closestBlock = null;
+        double closestDistance = threshold;
 
-        foreach (var target in Utilities.GetAllEntities().Where(e => e.DesignerName.Contains("prop_physics_override") && e.Entity!.Name.StartsWith("blockmaker")))
+        foreach (var block in Blocks.Entities.Values)
         {
-            CBaseProp prop = target.As<CBaseProp>();
+            CBaseProp prop = block.Entity;
 
-            if (prop == excludeBlock)
+            if (prop == null ||
+                !prop.IsValid ||
+                prop.AbsOrigin == null ||
+                prop.Handle == excludeBlock.Handle)
                 continue;
 
             double distance = VectorUtils.CalculateDistance(endPos, prop.AbsOrigin!);
-            if (distance < threshold)
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
                 closestBlock = prop;
+            }
         }
 
         return closestBlock;
@@ -238,14 +274,6 @@ public static class Utils
         throw new ArgumentException("Invalid percentage format or value.", nameof(input));
     }
 
-    public static float GetSize(string input)
-    {
-        var blockSize = config.Settings.Blocks.Sizes
-            .FirstOrDefault(bs => bs.Title.Equals(input, StringComparison.OrdinalIgnoreCase));
-
-        return blockSize?.Size ?? config.Settings.Blocks.Sizes.First(bs => bs.Size == 1.0f).Size;
-    }
-
     public static CBeam DrawBeam(Vector startPos, Vector endPos, Color color, float width = 0.25f)
     {
         var beam = Utilities.CreateEntityByName<CBeam>("beam")!;
@@ -269,10 +297,8 @@ public static class Utils
         Vector pos = block.AbsOrigin!;
         QAngle rotation = block.AbsRotation!;
 
-        float scale = Blocks.Entities.ContainsKey(block) ? Utils.GetSize(Blocks.Entities[block].Size) : 1;
-
-        var max = block.Collision!.Maxs * scale;
-        var min = block.Collision!.Mins * scale;
+        var max = block.Collision!.Maxs;
+        var min = block.Collision!.Mins;
 
         Vector forward = new(
             (float)Math.Cos(rotation.Y * Math.PI / 180) * (float)Math.Cos(rotation.X * Math.PI / 180),
@@ -400,6 +426,8 @@ public static class Utils
 
     public static void Clear()
     {
+        Blocks.ClearMovementEffects(true);
+
         RemoveEntities();
 
         foreach (var timer in Plugin.Instance.Timers)
@@ -425,5 +453,6 @@ public static class Utils
         Blocks.nuked = false;
 
         Building.BuilderHolds.Clear();
+        NumericBlockMenu.CloseAll();
     }
 }
