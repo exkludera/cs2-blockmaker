@@ -25,22 +25,45 @@ public partial class Blocks
         QAngle rotation;
         string orientation;
 
-        // Match the original BlockMaker cycle:
-        // horizontal -> standing on X -> standing on Y -> horizontal.
-        if (IsSameAngle(current.X, 0f) && IsSameAngle(current.Z, 0f))
+        if (block.Pole)
         {
-            rotation = new QAngle(90f, 0f, 0f);
-            orientation = "Standing X";
-        }
-        else if (IsSameAngle(current.X, 90f) && IsSameAngle(current.Z, 0f))
-        {
-            rotation = new QAngle(90f, 0f, 90f);
-            orientation = "Standing Y";
+            // Pole models are long on local X: point that axis along world
+            // X, Y, then Z for three visibly different orientations.
+            if (IsRotation(current, 0f, 0f, 0f))
+            {
+                rotation = new QAngle(0f, 90f, 0f);
+                orientation = "Horizontal Y";
+            }
+            else if (IsRotation(current, 0f, 90f, 0f))
+            {
+                rotation = new QAngle(90f, 0f, 0f);
+                orientation = "Vertical";
+            }
+            else
+            {
+                rotation = new QAngle(0f, 0f, 0f);
+                orientation = "Horizontal X";
+            }
         }
         else
         {
-            rotation = new QAngle(0f, 0f, 0f);
-            orientation = "Horizontal";
+            // Regular models are wide on local X/Y and thin on local Z:
+            // point the thin axis along world Z, X, then Y.
+            if (IsRotation(current, 0f, 0f, 0f))
+            {
+                rotation = new QAngle(90f, 0f, 0f);
+                orientation = "Standing X";
+            }
+            else if (IsRotation(current, 90f, 0f, 0f))
+            {
+                rotation = new QAngle(90f, 0f, 90f);
+                orientation = "Standing Y";
+            }
+            else
+            {
+                rotation = new QAngle(0f, 0f, 0f);
+                orientation = "Horizontal";
+            }
         }
 
         block.Entity.Teleport(null, rotation);
@@ -58,6 +81,11 @@ public partial class Blocks
         float difference = MathF.Abs(normalized - normalizedExpected);
         return MathF.Min(difference, 360f - difference) < 0.1f;
     }
+
+    private static bool IsRotation(QAngle rotation, float pitch, float yaw, float roll) =>
+        IsSameAngle(rotation.X, pitch) &&
+        IsSameAngle(rotation.Y, yaw) &&
+        IsSameAngle(rotation.Z, roll);
 
     public static void Position(CCSPlayerController player, string input, bool rotate)
     {

@@ -267,7 +267,7 @@ public partial class Blocks
             { Models.Data.Health.Title, new Property { Value = 1.0f, Cooldown = 0.75f } },
             { Models.Data.Money.Title, new Property { Value = 3000.0f, Cooldown = -1.0f } },
             { Models.Data.Grenade.Title, new Property { Cooldown = -1.0f } },
-            { Models.Data.Gravity.Title, new Property { Duration = 4.0f, Value = 0.4f, Cooldown = 5.0f } },
+            { Models.Data.Gravity.Title, new Property { Value = 0.25f, OnTop = false } },
             { Models.Data.Frost.Title, new Property { Cooldown = -1.0f } },
             { Models.Data.Flash.Title, new Property { Cooldown = -1.0f } },
             { Models.Data.Fire.Title, new Property { Duration = 5.0f, Value = 1.0f, Cooldown = 5.0f } },
@@ -283,6 +283,7 @@ public partial class Blocks
             { Models.Data.Trampoline.Title, new Property { Value = 500.0f } },
             { Models.Data.Death.Title, new Property { OnTop = true } },
             { Models.Data.Honey.Title, new Property { Value = 0.2f } },
+            { Models.Data.Duck.Title, new Property() },
             { Models.Data.Platform.Title, new Property() },
             { Models.Data.NoFallDmg.Title, new Property { OnTop = false } },
             { Models.Data.Ice.Title, new Property() },
@@ -332,6 +333,9 @@ public partial class Blocks
                     foreach (var entry in BlockDefaultProperties)
                         defaultsChanged |= BlockProperties.TryAdd(entry.Key, entry.Value);
 
+                    if (BlockProperties.TryGetValue(Models.Data.Gravity.Title, out var gravityProperty))
+                        defaultsChanged |= MigrateLegacyGravityDefaults(gravityProperty);
+
                     var legacyOncePerRoundCooldowns = new Dictionary<string, float>
                     {
                         [Models.Data.Money.Title] = 0.0f,
@@ -372,6 +376,25 @@ public partial class Blocks
                 }
             }
         }
+
+        public static bool MigrateLegacyGravityDefaults(Property property)
+        {
+            bool usesLegacyDefaults =
+                Math.Abs(property.Cooldown - 5.0f) < 0.0001f &&
+                Math.Abs(property.Value - 0.4f) < 0.0001f &&
+                Math.Abs(property.Duration - 4.0f) < 0.0001f &&
+                property.OnTop;
+
+            if (!usesLegacyDefaults)
+                return false;
+
+            property.Cooldown = 0.0f;
+            property.Value = 0.25f;
+            property.Duration = 0.0f;
+            property.OnTop = false;
+            return true;
+        }
+
     }
 
     public class Effect

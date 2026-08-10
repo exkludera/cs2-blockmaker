@@ -29,6 +29,13 @@
 
 ## Changes in this fork (0.2.7)
 
+### Latest live snapshot
+
+- Added an iGz-inspired Duck block using native CS2 crouch state; it currently reuses the Platform models.
+- Added separate three-orientation rotation cycles for regular blocks and pole blocks.
+- Changed Gravity to remain active through the next landing at `0.25` gravity.
+- Preserved the existing Money block and once-per-round cooldown behavior.
+
 - Added a numeric building menu and improved block grabbing, duplication, deletion, rotation, and property editing.
 - Improved ray-traced block targeting and face-based snapping, including rotated blocks.
 - Added dedicated Small, Normal, Large, and X-Large models so visual size and collision bounds stay aligned.
@@ -39,7 +46,8 @@
 - Updated defaults: Health `1`, Fire `1`, Damage `5`, Death `OnTop` enabled, and Honey `0.2`.
 - Added a Money block that defaults to Terrorists, awards `$3,000`, and exposes the award through the editable `Value` property.
 - Added `Cooldown = -1` for once-per-round block activation. The lock survives player death and resets when the next round starts.
-- Money, grenade, firearm, and temporary-perk blocks now default to once-per-round activation; Gravity retains its `5`-second cooldown.
+- Money, grenade, firearm, and temporary-perk blocks now default to once-per-round activation.
+- Gravity now matches iGz-style behavior: `0.25` gravity from contact through the next landing, without a timed cooldown.
 - Existing generated configuration files are extended and migrated when new built-in defaults are introduced.
 
 ## Requirements
@@ -75,8 +83,9 @@ Cooldowns are tracked per player and per block.
 
 The once-per-round default applies to Money, Grenade, Frost, Flash, Stealth,
 Speed, Camouflage, Random, Invincibility, and every firearm category. Gravity
-keeps its `5`-second default. Administrators can enter `-1` through the block
-property editor for any action that uses the standard cooldown system.
+does not use the standard timed cooldown: it remains active while airborne and
+becomes available again after landing. Administrators can enter `-1` through
+the block property editor for any action that uses the standard cooldown system.
 
 Existing `default_properties.json` files are migrated only when a value still
 matches the previous built-in default, preserving separately customized values.
@@ -431,10 +440,10 @@ paths with a `SizeModels` object:
     "Builder": ""
   },
   "Gravity": {
-    "Cooldown": 5,
-    "Value": 0.4,
-    "Duration": 4,
-    "OnTop": true,
+    "Cooldown": 0,
+    "Value": 0.25,
+    "Duration": 0,
+    "OnTop": false,
     "Locked": false,
     "Builder": ""
   },

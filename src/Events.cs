@@ -15,6 +15,8 @@ public static class Events
         Instance.RegisterListener<Listeners.OnTick>(Building.OnTick);
         Instance.RegisterListener<Listeners.OnTick>(NumericBlockMenu.OnTick);
         Instance.RegisterListener<Listeners.OnTick>(Blocks.UpdateHoneyEffects);
+        Instance.RegisterListener<Listeners.OnTick>(Blocks.UpdateDuckEffects);
+        Instance.RegisterListener<Listeners.OnTick>(Blocks.UpdateGravityEffects);
         Instance.RegisterListener<Listeners.OnMapStart>(OnMapStart);
         Instance.RegisterListener<Listeners.OnMapEnd>(OnMapEnd);
         Instance.RegisterListener<Listeners.OnClientDisconnectPost>(OnClientDisconnectPost);
@@ -39,6 +41,8 @@ public static class Events
         Instance.RemoveListener<Listeners.OnTick>(Building.OnTick);
         Instance.RemoveListener<Listeners.OnTick>(NumericBlockMenu.OnTick);
         Instance.RemoveListener<Listeners.OnTick>(Blocks.UpdateHoneyEffects);
+        Instance.RemoveListener<Listeners.OnTick>(Blocks.UpdateDuckEffects);
+        Instance.RemoveListener<Listeners.OnTick>(Blocks.UpdateGravityEffects);
         Instance.RemoveListener<Listeners.OnMapStart>(OnMapStart);
         Instance.RemoveListener<Listeners.OnMapEnd>(OnMapEnd);
         Instance.RemoveListener<Listeners.OnClientDisconnectPost>(OnClientDisconnectPost);

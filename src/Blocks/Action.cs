@@ -41,6 +41,7 @@ public partial class Blocks
             { blockModels.Camouflage.Title, Action_Camouflage },
             { blockModels.Trampoline.Title, Action_Trampoline },
             { blockModels.Honey.Title, Action_Honey },
+            { blockModels.Duck.Title, Action_Duck },
             { blockModels.Pistol.Title, Action_Weapons },
             { blockModels.Rifle.Title, Action_Weapons },
             { blockModels.Sniper.Title, Action_Weapons },
@@ -113,9 +114,25 @@ public partial class Blocks
     public static Dictionary<int, HashSet<CBaseProp>> RoundCooldowns = new();
     private const float TrampolineCooldownSeconds = 0.5f;
     private const float HoneyContactGraceSeconds = 0.1f;
+    private const float DuckContactGraceSeconds = 0.1f;
+    private const float FullDuckAmount = 1.0f;
+    private const float RecoveredDuckSpeed = 8.0f;
     private const float MovementModifierTolerance = 0.0001f;
+    private const uint OnGroundFlag = 1u << 0;
     private static readonly Dictionary<int, float> TrampolineCooldowns = new();
     private static readonly Dictionary<uint, HoneyEffectState> HoneyEffects = new();
+    private static readonly Dictionary<uint, DuckEffectState> DuckEffects = new();
+    private static readonly Dictionary<uint, GravityEffectState> GravityEffects = new();
+
+    private sealed class GravityEffectState
+    {
+        public required ulong SteamId { get; init; }
+        public required int Slot { get; init; }
+        public required uint PawnIndex { get; init; }
+        public required float OriginalGravityScale { get; init; }
+        public required float AppliedGravityScale { get; init; }
+        public bool WasAirborne { get; set; }
+    }
 
     private sealed class HoneyEffectState
     {
@@ -124,6 +141,16 @@ public partial class Blocks
         public required uint PawnIndex { get; init; }
         public required float OriginalVelocityModifier { get; init; }
         public required float AppliedVelocityModifier { get; set; }
+        public required float ExpiresAt { get; set; }
+    }
+
+    private sealed class DuckEffectState
+    {
+        public required ulong SteamId { get; init; }
+        public required int Slot { get; init; }
+        public required uint PawnIndex { get; init; }
+        public required bool OriginalDuckOverride { get; init; }
+        public required bool OriginalDesiresDuck { get; init; }
         public required float ExpiresAt { get; set; }
     }
 
@@ -146,12 +173,72 @@ public partial class Blocks
         }
     }
 
+    public static void UpdateDuckEffects()
+    {
+        if (DuckEffects.Count == 0)
+            return;
+
+        foreach (var state in DuckEffects.Values.ToArray())
+        {
+            var player = FindMovementEffectPlayer(state.Slot, state.PawnIndex, state.SteamId);
+            if (player == null)
+            {
+                DuckEffects.Remove(state.PawnIndex);
+                continue;
+            }
+
+            if (Server.CurrentTime >= state.ExpiresAt)
+                ClearDuckEffect(state.PawnIndex, true);
+        }
+    }
+
+    public static void UpdateGravityEffects()
+    {
+        if (GravityEffects.Count == 0)
+            return;
+
+        foreach (var state in GravityEffects.Values.ToArray())
+        {
+            var player = FindMovementEffectPlayer(state.Slot, state.PawnIndex, state.SteamId);
+            var pawn = player?.PlayerPawn.Value;
+            if (player == null || pawn == null || !pawn.IsValid)
+            {
+                GravityEffects.Remove(state.PawnIndex);
+                continue;
+            }
+
+            if (!player.IsAlive())
+            {
+                ClearGravityEffect(state.PawnIndex, true);
+                continue;
+            }
+
+            bool onGround = (pawn.Flags & OnGroundFlag) != 0;
+            if (!state.WasAirborne)
+            {
+                if (!onGround)
+                    state.WasAirborne = true;
+
+                continue;
+            }
+
+            if (onGround)
+                ClearGravityEffect(state.PawnIndex, true);
+        }
+    }
+
     public static void ClearMovementEffectsForSlot(int slot, bool restoreHoney)
     {
         TrampolineCooldowns.Remove(slot);
 
         foreach (var state in HoneyEffects.Values.Where(state => state.Slot == slot).ToArray())
             ClearHoneyEffect(state.PawnIndex, restoreHoney);
+
+        foreach (var state in DuckEffects.Values.Where(state => state.Slot == slot).ToArray())
+            ClearDuckEffect(state.PawnIndex, true);
+
+        foreach (var state in GravityEffects.Values.Where(state => state.Slot == slot).ToArray())
+            ClearGravityEffect(state.PawnIndex, true);
     }
 
     public static void ClearMovementEffects(bool restoreHoney)
@@ -162,6 +249,33 @@ public partial class Blocks
             ClearHoneyEffect(pawnIndex, restoreHoney);
 
         HoneyEffects.Clear();
+
+        foreach (var pawnIndex in DuckEffects.Keys.ToArray())
+            ClearDuckEffect(pawnIndex, true);
+
+        DuckEffects.Clear();
+
+        foreach (var pawnIndex in GravityEffects.Keys.ToArray())
+            ClearGravityEffect(pawnIndex, restoreHoney);
+
+        GravityEffects.Clear();
+    }
+
+    private static void ClearGravityEffect(uint pawnIndex, bool restore)
+    {
+        if (!GravityEffects.Remove(pawnIndex, out var state) || !restore)
+            return;
+
+        var player = FindMovementEffectPlayer(state.Slot, state.PawnIndex, state.SteamId);
+        var pawn = player?.PlayerPawn.Value;
+        if (pawn == null || !pawn.IsValid)
+            return;
+
+        // Do not overwrite a newer gravity effect applied by another block/plugin.
+        if (Math.Abs(pawn.ActualGravityScale - state.AppliedGravityScale) > MovementModifierTolerance)
+            return;
+
+        pawn.ActualGravityScale = state.OriginalGravityScale;
     }
 
     private static void ClearHoneyEffect(uint pawnIndex, bool restore)
@@ -182,13 +296,34 @@ public partial class Blocks
         Utilities.SetStateChanged(pawn, "CCSPlayerPawn", "m_flVelocityModifier");
     }
 
+    private static void ClearDuckEffect(uint pawnIndex, bool restore)
+    {
+        if (!DuckEffects.Remove(pawnIndex, out var state) || !restore)
+            return;
+
+        var player = FindMovementEffectPlayer(state.Slot, state.PawnIndex, state.SteamId);
+        var movement = player?.PlayerPawn.Value?.MovementServices?.As<CCSPlayer_MovementServices>();
+        if (movement == null)
+            return;
+
+        movement.DuckOverride = state.OriginalDuckOverride;
+        movement.DesiresDuck = state.OriginalDesiresDuck;
+
+        // Leave hull expansion to CS2 so standing beneath low geometry remains
+        // safe, but remove the crouch-recovery penalty for a quick transition.
+        movement.DuckSpeed = MathF.Max(movement.DuckSpeed, RecoveredDuckSpeed);
+    }
+
     private static CCSPlayerController? FindHoneyPlayer(HoneyEffectState state) =>
+        FindMovementEffectPlayer(state.Slot, state.PawnIndex, state.SteamId);
+
+    private static CCSPlayerController? FindMovementEffectPlayer(int slot, uint pawnIndex, ulong steamId) =>
         Utilities.GetPlayers().FirstOrDefault(player =>
             player is { IsValid: true } &&
-            player.Slot == state.Slot &&
+            player.Slot == slot &&
             player.PlayerPawn.Value is { IsValid: true } pawn &&
-            pawn.Index == state.PawnIndex &&
-            (state.SteamId == 0 || player.SteamID == state.SteamId));
+            pawn.Index == pawnIndex &&
+            (steamId == 0 || player.SteamID == steamId));
 
     private static void BlockCooldownTimer(CCSPlayerController player, CBaseProp block, float timer = 0, bool message = false)
     {
@@ -347,23 +482,22 @@ public partial class Blocks
 
     private static void Action_Gravity(CCSPlayerController player, Data data)
     {
-        var block = data.Entity;
-        var title = blockModels.Gravity.Title;
-        var settings = data.Properties;
-        var gravity = player.GravityScale;
+        var pawn = player.PlayerPawn.Value;
+        if (pawn == null || !pawn.IsValid || GravityEffects.ContainsKey(pawn.Index))
+            return;
 
-        player.SetGravity(settings.Value);
-
-        ActivatedMessage(player, title);
-
-        instance.AddTimer(settings.Duration, () =>
+        float gravity = data.Properties.Value;
+        GravityEffects[pawn.Index] = new GravityEffectState
         {
-            player.SetGravity(gravity);
+            SteamId = player.SteamID,
+            Slot = player.Slot,
+            PawnIndex = pawn.Index,
+            OriginalGravityScale = pawn.ActualGravityScale,
+            AppliedGravityScale = gravity,
+            WasAirborne = (pawn.Flags & OnGroundFlag) == 0,
+        };
 
-            DeactivatedMessage(player, title);
-        });
-
-        BlockCooldownTimer(player, block, settings.Cooldown);
+        pawn.ActualGravityScale = gravity;
     }
 
     private static void Action_Health(CCSPlayerController player, Data data)
@@ -756,6 +890,48 @@ public partial class Blocks
 
         pawn.VelocityModifier = appliedModifier;
         Utilities.SetStateChanged(pawn, "CCSPlayerPawn", "m_flVelocityModifier");
+    }
+
+    private static void Action_Duck(CCSPlayerController player, Data data)
+    {
+        var pawn = player.PlayerPawn.Value;
+        var movement = pawn?.MovementServices?.As<CCSPlayer_MovementServices>();
+        if (pawn == null || !pawn.IsValid || movement == null)
+            return;
+
+        float expiresAt = Server.CurrentTime + DuckContactGraceSeconds;
+        if (!DuckEffects.TryGetValue(pawn.Index, out var state) ||
+            state.Slot != player.Slot ||
+            (state.SteamId != 0 && state.SteamId != player.SteamID))
+        {
+            if (state != null)
+                DuckEffects.Remove(pawn.Index);
+
+            state = new DuckEffectState
+            {
+                SteamId = player.SteamID,
+                Slot = player.Slot,
+                PawnIndex = pawn.Index,
+                OriginalDuckOverride = movement.DuckOverride,
+                OriginalDesiresDuck = movement.DesiresDuck,
+                ExpiresAt = expiresAt,
+            };
+            DuckEffects[pawn.Index] = state;
+        }
+        else
+        {
+            state.ExpiresAt = expiresAt;
+        }
+
+        // Complete the crouch immediately through CS2's movement state. This
+        // keeps the animation and collision hull in sync while removing the
+        // normal gradual crouch and accumulated duck penalty.
+        movement.DuckOverride = true;
+        movement.DesiresDuck = true;
+        movement.DuckSpeed = MathF.Max(movement.DuckSpeed, RecoveredDuckSpeed);
+        movement.DuckAmount = FullDuckAmount;
+        movement.Ducked = true;
+        movement.Ducking = false;
     }
 
     private static void Action_Barrier(CCSPlayerController player, Data data)

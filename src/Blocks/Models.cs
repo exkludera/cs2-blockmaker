@@ -104,6 +104,7 @@ public partial class Blocks
         public BlockTrampoline Trampoline { get; set; } = new();
         public BlockNoFallDmg NoFallDmg { get; set; } = new();
         public BlockHoney Honey { get; set; } = new();
+        public BlockDuck Duck { get; set; } = new();
         public BlockBarrier Barrier { get; set; } = new();
         public BlockMoney Money { get; set; } = new();
 
@@ -115,7 +116,7 @@ public partial class Blocks
             Platform, Bhop, Health, Grenade, Gravity, Glass, Frost, Flash, Fire, Delay,
             Death, Damage, Pistol, Rifle, Sniper, SMG, ShotgunHeavy, Stealth, Speed,
             SpeedBoost, Slap, Random, Nuke, Invincibility, Ice, Camouflage, Trampoline,
-            NoFallDmg, Honey, Barrier, Money
+            NoFallDmg, Honey, Duck, Barrier, Money
         };
 
             if (CustomBlocks != null && CustomBlocks.Count > 0)
@@ -468,6 +469,16 @@ public partial class Blocks
             Title = "Honey";
             Block = "models/blockmaker/honey/block.vmdl";
             Pole = "models/blockmaker/honey/pole.vmdl";
+        }
+    }
+
+    public class BlockDuck : BlockModel
+    {
+        public BlockDuck()
+        {
+            Title = "Duck";
+            Block = "models/blockmaker/platform/block.vmdl";
+            Pole = "models/blockmaker/platform/pole.vmdl";
         }
     }
 

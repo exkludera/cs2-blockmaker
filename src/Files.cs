@@ -219,6 +219,9 @@ public static partial class Files
                 {
                     foreach (var Data in blocksList)
                     {
+                        if (Data.Type.Split('.')[0].Equals(Blocks.Models.Data.Gravity.Title, StringComparison.OrdinalIgnoreCase))
+                            Blocks.Properties.MigrateLegacyGravityDefaults(Data.Properties);
+
                         Blocks.CreateBlock(
                             null,
                             Data.Type,
